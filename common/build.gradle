@@ -1,5 +1,9 @@
 import dev.vankka.dependencydownload.task.GenerateDependencyDownloadResourceTask
 
+java {
+    disableAutoTargetJvm() // CarbonChat requires Java 21, we target 8
+}
+
 configurations {
     // Dependencies to exclude from runtime downloaded jars
     runtimeDownloadExclude {
@@ -78,6 +82,7 @@ dependencies {
     compileOnlyApi(libs.jackson.databind)
 
     // Config
+    api(project(':api:api-configurate'))
     runtimeDownloadApi(libs.configurate.yaml)
     runtimeDownloadApi(libs.configurate.jackson)
 
@@ -114,6 +119,9 @@ dependencies {
 
     // Integrations
     compileOnlyApi(libs.luckperms)
+
+    // Chat Integrations
+    compileOnly(libs.carbonchat)
 }
 
 processResources {

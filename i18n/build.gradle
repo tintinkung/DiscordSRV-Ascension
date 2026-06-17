@@ -2,6 +2,8 @@ plugins {
     id 'application'
 }
 
+apply from: rootProject.file('buildscript/relocations.gradle')
+
 // Don't need to be versioned, so we remove the version here to reduce the complexity of the CI
 version = null
 
@@ -13,7 +15,7 @@ dependencies {
     implementation(project(':bukkit:bukkit-shared')) { transitive = false }
     implementation(project(':bungee')) { transitive = false }
     implementation(project(':velocity')) { transitive = false }
-    implementation(project(':fabric:1.21.6')) { transitive = false }
+    implementation(project(path: ':modded:1.21.11-fabric', configuration: "shadow")) { transitive = false }
 
     api(libs.configurate.yaml)
     api(libs.configurate.jackson)

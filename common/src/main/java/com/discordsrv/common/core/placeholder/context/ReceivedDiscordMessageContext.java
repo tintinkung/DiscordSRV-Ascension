@@ -23,7 +23,6 @@ import com.discordsrv.api.placeholder.annotation.Placeholder;
 import com.discordsrv.api.placeholder.annotation.PlaceholderPrefix;
 import com.discordsrv.api.placeholder.annotation.PlaceholderRemainder;
 import com.discordsrv.common.DiscordSRV;
-import com.discordsrv.common.config.main.channels.DiscordToMinecraftChatConfig;
 import com.discordsrv.common.config.main.channels.base.BaseChannelConfig;
 import com.discordsrv.common.feature.messageforwarding.discord.DiscordToMinecraftChatModule;
 import com.discordsrv.common.util.ComponentUtil;
@@ -52,16 +51,7 @@ public class ReceivedDiscordMessageContext {
             return null;
         }
 
-        DiscordToMinecraftChatConfig chatConfig = config.discordToMinecraft;
-
-        String content = message.getContent();
-        if (content == null) {
-            return null;
-        }
-
-        String filteredContent = DiscordToMinecraftChatModule.filterMessage(content, chatConfig);
-        Component component = discordSRV.componentFactory().minecraftSerialize(message, config, filteredContent);
-
+        Component component = DiscordToMinecraftChatModule.convertToComponent(discordSRV, message, config);
         return ComponentUtil.fromAPI(
                 discordSRV.componentFactory().textBuilder(format)
                         .addPlaceholder("message", component)

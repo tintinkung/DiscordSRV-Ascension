@@ -100,6 +100,7 @@ public abstract class RequiredLinkingModule<T extends DiscordSRV> extends Abstra
         }
     }
 
+    @MustBeInvokedByOverriders
     @Override
     public final void reload(Consumer<ReloadResult> resultConsumer) {
         List<RequirementType<?>> requirementTypes = new ArrayList<>();
@@ -299,7 +300,7 @@ public abstract class RequiredLinkingModule<T extends DiscordSRV> extends Abstra
                 }
 
                 // None of the futures passed: additional requirements not met
-                return Component.text("You did not pass requirements");
+                return discordSRV.messagesConfig().failedRequirements.asComponent();
             });
         });
     }

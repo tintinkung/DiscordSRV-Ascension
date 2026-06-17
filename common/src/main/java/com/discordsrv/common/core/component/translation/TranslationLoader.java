@@ -19,7 +19,9 @@
 package com.discordsrv.common.core.component.translation;
 
 import com.discordsrv.common.DiscordSRV;
+import com.discordsrv.common.core.component.ComponentFactory;
 import com.discordsrv.common.core.logging.NamedLogger;
+import com.discordsrv.common.util.ComponentUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.translation.TranslationStore;
@@ -34,6 +36,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class TranslationLoader {
@@ -50,6 +54,7 @@ public class TranslationLoader {
     public void reload() {
         try {
             TranslationStore<MessageFormat> translationStore = TranslationStore.messageFormat(Key.key("discordsrv", "user-defined"));
+            translationStore.defaultLocale(ComponentFactory.TRANSLATION_LOCALE);
 
             Path languages = discordSRV.dataDirectory().resolve("game_languages");
             if (Files.exists(languages)) {
@@ -80,19 +85,21 @@ public class TranslationLoader {
                 }
 
                 try {
+                    // Grab locale from file name to pass to MessageFormat
                     String language = fileName.substring(0, lastDot);
-                    Locale locale = Locale.forLanguageTag(language);
+                    Locale locale = ComponentUtil.extractLocale(language);
+
                     URL url = path.toUri().toURL();
 
-                    Map<String, MessageFormat> translations;
+                    Map<String, String> translations;
                     if (extension.equalsIgnoreCase("json")) {
                         translations = getFromJson(url);
                     } else {
                         translations = getFromProperties(url);
                     }
                     if (translations != null && !translations.isEmpty()) {
-                        translationStore.registerAll(locale, translations);
-                        logger.debug("Loaded " + translations.size() + " translations for " + locale);
+                        translations.forEach((key, value) -> translationStore.register(key, locale, messageFormat(value, locale)));
+                        logger.debug("Loaded " + translations.size() + " translations from " + fileName + " (in " + locale + ")");
                     }
                 } catch (Throwable t) {
                     logger.warning("Failed to read language file " + fileName, t);
@@ -101,28 +108,60 @@ public class TranslationLoader {
         }
     }
 
-    protected Map<String, MessageFormat> getFromProperties(URL url) throws IOException {
-        Map<String, MessageFormat> translations = new HashMap<>();
+    protected Map<String, String> getFromProperties(URL url) throws IOException {
+        Map<String, String> translations = new HashMap<>();
 
         Properties properties = new Properties();
         try (InputStream inputStream = url.openStream()) {
             properties.load(inputStream);
         }
 
-        properties.forEach((k, v) -> translations.put((String) k, new MessageFormat((String) v)));
+        properties.forEach((k, v) -> translations.put((String) k, (String) v));
+        return translations;
+    }
+
+    protected Map<String, String> getFromJson(URL url) throws IOException {
+        Map<String, String> translations = new HashMap<>();
+
+        JsonNode node = discordSRV.json().readTree(url);
+        node.fields().forEachRemaining(entry -> translations.put(entry.getKey(), entry.getValue().textValue()));
 
         return translations;
     }
 
-    protected Map<String, MessageFormat> getFromJson(URL url) throws IOException {
-        Map<String, MessageFormat> translations = new HashMap<>();
+    private static final Pattern PACK_PLACEHOLDER_PATTERN = Pattern.compile("%(?:s|([0-9]+)\\$s)");
 
-        JsonNode node = discordSRV.json().readTree(url);
-        node.fields().forEachRemaining(entry -> translations.put(
-                entry.getKey(),
-                new MessageFormat(entry.getValue().textValue()))
-        );
+    protected MessageFormat messageFormat(String value, Locale locale) {
+        // Adventure wants a MessageFormat while Minecraft language files are not that
+        // https://minecraft.wiki/w/Resource_pack#Language
 
-        return translations;
+        if (value == null) return new MessageFormat("", locale);
+        Matcher matcher = PACK_PLACEHOLDER_PATTERN.matcher(value);
+        StringBuffer replacement = new StringBuffer(value.length());
+        int lastEnd = -1;
+        int index = 0;
+        while (matcher.find()) {
+            lastEnd = matcher.end();
+            index++;
+            int number;
+            try {
+                number = Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException ignored) {
+                number = index;
+            }
+
+            // Change to 0 indexed
+            matcher.appendReplacement(replacement, Matcher.quoteReplacement("{" + (number - 1) + "}"));
+        }
+        if (lastEnd != -1) {
+            // If we found any placeholders, use the replaced output
+            replacement.append(value, lastEnd, value.length());
+            value = replacement.toString();
+        }
+
+        // Unescape %
+        value = value.replace("%%", "%");
+
+        return new MessageFormat(value, locale);
     }
 }

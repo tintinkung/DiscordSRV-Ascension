@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "discordsrv",
+  "version": "${mod_version}",
+  "name": "DiscordSRV",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "GPLv3",
+  "environment": "server",
+  "entrypoints": {
+    "server": [
+      "com.discordsrv.fabric.DiscordSRVFabricBootstrap"
+    ]
+  },
+  "mixins": [
+    "discordsrv.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "*",
+    "fabric-api": "*",
+    "minecraft": "*",
+    "fabric-permissions-api-v0": "*"
+  }
+}

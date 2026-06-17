@@ -142,6 +142,11 @@ public class MessagesConfig implements Config {
             "Discord user"
     );
 
+    // Pester to players who haven't linked their accounts yet.
+    public MinecraftMessage playerLinkPestering = minecraft(
+            "You have not linked your Discord account yet. Please run /%gamecommand_discord_link_alias% to get started."
+    );
+
     // DiscordSRV command
 
     public DiscordMessage discordsrvCommandDescription = discord(
@@ -393,6 +398,12 @@ public class MessagesConfig implements Config {
     public BothMessage bypassRemoved = both(
             "%1 has been removed from the bypass list",
             "%2 has been removed from the bypass list"
+    );
+
+    // Failed additional linked requirements message
+
+    public MinecraftMessage failedRequirements = minecraft(
+      "You did not pass the additional requirements"
     );
 
     // Broadcast command

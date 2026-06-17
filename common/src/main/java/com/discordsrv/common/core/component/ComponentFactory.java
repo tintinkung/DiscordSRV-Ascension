@@ -27,10 +27,8 @@ import com.discordsrv.api.discord.entity.guild.DiscordCustomEmoji;
 import com.discordsrv.api.discord.entity.guild.DiscordGuild;
 import com.discordsrv.api.discord.entity.guild.DiscordGuildMember;
 import com.discordsrv.api.discord.entity.guild.DiscordRole;
-import com.discordsrv.api.discord.entity.message.ReceivedDiscordMessage;
 import com.discordsrv.api.events.message.render.game.CustomEmojiRenderEvent;
 import com.discordsrv.common.DiscordSRV;
-import com.discordsrv.common.config.main.channels.DiscordToMinecraftChatConfig;
 import com.discordsrv.common.config.main.channels.base.BaseChannelConfig;
 import com.discordsrv.common.config.main.generic.MentionsConfig;
 import com.discordsrv.common.core.component.renderer.DiscordSRVMinecraftRenderer;
@@ -56,6 +54,7 @@ import net.kyori.adventure.text.serializer.ansi.ANSIComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.translation.Translator;
+import net.kyori.adventure.util.TriState;
 import net.kyori.ansi.ColorLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -70,6 +69,7 @@ import java.util.regex.Pattern;
 
 public class ComponentFactory implements MinecraftComponentFactory {
 
+    public static Locale TRANSLATION_LOCALE = Locale.ROOT;
     private static final Pattern MESSAGE_URL_PATTERN = Pattern.compile("https://(?:(?:ptb|canary)\\.)?discord\\.com/channels/[0-9]{16,20}/([0-9]{16,20})/[0-9]{16,20}");
     public static final Class<?> UNRELOCATED_ADVENTURE_COMPONENT;
 
@@ -103,9 +103,12 @@ public class ComponentFactory implements MinecraftComponentFactory {
 
         ComponentFlattener flattener = ComponentFlattener.basic().toBuilder()
                 .mapper(TranslatableComponent.class, translatableComponent -> {
-                    Component translated = translatableComponentRenderer.render(translatableComponent, Locale.US);
+                    Component translated = translatableComponentRenderer.render(translatableComponent, TRANSLATION_LOCALE);
                     // Avoid recursion, use plain text serializer without special flattener
-                    return PlainTextComponentSerializer.plainText().serialize(translated);
+                    // PlainTextComponentSerializer will also use TranslatableComponent#fallback or #key if something wasn't translated above
+                    String plain = PlainTextComponentSerializer.plainText().serialize(translated);
+                    logger.trace("\"" + translatableComponent.key() + "\" (" + translatableComponent.arguments().size() + " arguments) translated to \"" + plain + "\"");
+                    return plain;
                 })
                 .build();
         this.discordSerializer = new DiscordSerializer(
@@ -119,6 +122,10 @@ public class ComponentFactory implements MinecraftComponentFactory {
                 .colorLevel(ColorLevel.INDEXED_8)
                 .flattener(flattener)
                 .build();
+    }
+
+    public void updateDefaultLocate() {
+        TRANSLATION_LOCALE = discordSRV.defaultLocale();
     }
 
     @Override
@@ -294,36 +301,6 @@ public class ComponentFactory implements MinecraftComponentFactory {
         }
     }
 
-    public Component minecraftSerialize(ReceivedDiscordMessage message, BaseChannelConfig config, String discordMessage) {
-        DiscordToMinecraftChatConfig.FormattingLimitConfig formattingLimit = config.discordToMinecraft.formattingLimit;
-        DiscordUser user = message.getAuthor();
-        DiscordGuildMember member = message.getMember();
-        boolean allowed = formattingLimit.roleAndUserIds.stream().anyMatch(id -> {
-            if (id == user.getId()) {
-                return true;
-            }
-            if (member == null) {
-                return false;
-            }
-            for (DiscordRole role : member.getRoles()) {
-                if (role.getId() == id) {
-                    return true;
-                }
-            }
-            return false;
-        }) != formattingLimit.blacklist;
-
-        return DiscordSRVMinecraftRenderer.getWithContext(
-                message.getGuild(),
-                message.getAuthor(),
-                message.getMentionedUsers(),
-                message.getMentionedMembers(),
-                config,
-                allowed,
-                () -> minecraftSerializer().serialize(discordMessage)
-        );
-    }
-
     public String discordSerialize(Component component) {
         Component mapped = DiscordMentionComponent.remapToDiscord(component);
         return discordSerializer().serialize(mapped);
@@ -345,11 +322,14 @@ public class ComponentFactory implements MinecraftComponentFactory {
         return ansiSerializer;
     }
 
+    /**
+     * Note: locale provided to translator is always {@link #TRANSLATION_LOCALE}.
+     */
     public List<Translator> translators() {
         return translators.translators;
     }
 
-    private static class Translators implements Translator {
+    private class Translators implements Translator {
 
         public final List<Translator> translators = new ArrayList<>();
 
@@ -359,22 +339,45 @@ public class ComponentFactory implements MinecraftComponentFactory {
         }
 
         @Override
+        public @NotNull TriState hasAnyTranslations() {
+            boolean undefined = false;
+            for (Translator translator : translators) {
+                TriState hasTranslations = translator.hasAnyTranslations();
+                if (hasTranslations == TriState.TRUE) {
+                    return TriState.TRUE;
+                } else if (hasTranslations == TriState.NOT_SET) {
+                    undefined = true;
+                }
+            }
+            return undefined ? TriState.NOT_SET : TriState.FALSE;
+        }
+
+        @Override
         public boolean canTranslate(@NotNull String key, @NotNull Locale locale) {
             for (Translator translator : translators) {
                 if (translator.canTranslate(key, locale)) {
                     return true;
                 }
             }
-            return false;
+            return true;
         }
 
         @Override
         public @Nullable Component translate(@NotNull TranslatableComponent component, @NotNull Locale locale) {
             for (Translator translator : translators) {
-                Component translation = translator.translate(component, locale);
-                if (translation != null) {
-                    return translation;
+                if (!translator.canTranslate(component.key(), locale)) {
+                    continue;
                 }
+
+                Component translation = translator.translate(component, locale);
+                if (translation == null) {
+                    // Translator can only translate to MessageFormat,
+                    // keep priority order of translators instead of using component translation
+                    return null;
+                }
+
+                logger.trace("\"" + component.key() + "\" translated by " + translator.getClass().getName());
+                return translation;
             }
             return null;
         }
@@ -384,6 +387,7 @@ public class ComponentFactory implements MinecraftComponentFactory {
             for (Translator translator : translators) {
                 MessageFormat translation = translator.translate(key, locale);
                 if (translation != null) {
+                    logger.trace("\"" + key + "\" translated to \"" + translation.toPattern() + "\" by " + translator.getClass().getName());
                     return translation;
                 }
             }

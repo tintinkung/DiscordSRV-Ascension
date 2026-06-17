@@ -89,6 +89,7 @@ import com.discordsrv.common.feature.customcommands.CustomCommandModule;
 import com.discordsrv.common.feature.groupsync.GroupSyncModule;
 import com.discordsrv.common.feature.linking.LinkProvider;
 import com.discordsrv.common.feature.linking.LinkedRoleModule;
+import com.discordsrv.common.feature.linking.LinkPesteringModule;
 import com.discordsrv.common.feature.linking.LinkingModule;
 import com.discordsrv.common.feature.linking.LinkingRewardsModule;
 import com.discordsrv.common.feature.linking.impl.MinecraftAuthenticationLinker;
@@ -107,6 +108,7 @@ import com.discordsrv.common.helper.TemporaryLocalData;
 import com.discordsrv.common.helper.VanishStatusTrackingModule;
 import com.discordsrv.common.logging.adapter.DependencyLoggerAdapter;
 import com.discordsrv.common.util.ApiInstanceUtil;
+import com.discordsrv.common.util.ComponentUtil;
 import com.discordsrv.common.util.GitIgnoreUtil;
 import com.discordsrv.common.util.UUIDUtil;
 import com.discordsrv.common.util.function.CheckedFunction;
@@ -557,7 +559,7 @@ public abstract class AbstractDiscordSRV<
         if (config != null) {
             String defaultLanguage = config.messages.defaultLanguage;
             if (StringUtils.isNotBlank(defaultLanguage)) {
-                return Locale.forLanguageTag(defaultLanguage);
+                return ComponentUtil.extractLocale(defaultLanguage);
             }
         }
 
@@ -749,6 +751,7 @@ public abstract class AbstractDiscordSRV<
         registerModule(WorldChannelModule::new);
         registerModule(MentionCachingModule::new);
         registerModule(LinkingModule::new);
+        registerModule(LinkPesteringModule::new);
         registerModule(PresenceUpdaterModule::new);
         registerModule(MentionGameRenderingModule::new);
         registerModule(CustomCommandModule::new);
@@ -768,6 +771,9 @@ public abstract class AbstractDiscordSRV<
             registerModule(AdvancementMessageModule::new);
             registerModule(DeathMessageModule::new);
         }
+
+        // Chat Integrations
+        registerIntegration("com.discordsrv.common.integration.chat.CarbonChatIntegration");
 
         // Check if the system has working DNS
         try {
@@ -947,14 +953,14 @@ public abstract class AbstractDiscordSRV<
                     case MINECRAFTAUTH:
                         if (!permitMinecraftAuth) {
                             linkProvider = null;
-                            logger().error("minecraftauth.me is disabled in the " + ConnectionConfig.FILE_NAME + ", "
+                            logger().error(MinecraftAuthenticationLinker.DOMAIN + " is disabled in the " + ConnectionConfig.FILE_NAME + ", "
                                                    + "but linked-accounts.provider is set to \"minecraftauth\". Linked accounts will be disabled");
                             break;
                         }
                         logger().info("Loading MinecraftAuth library");
                         dependencyManager.mcAuthLib().downloadRelocateAndLoad().get();
                         linkProvider = new MinecraftAuthenticationLinker(this);
-                        logger().info("Using minecraftauth.me for linked accounts");
+                        logger().info("Using " + MinecraftAuthenticationLinker.DOMAIN + " for linked accounts");
                         break;
                     case STORAGE:
                         linkProvider = new StorageLinker(this);
@@ -996,6 +1002,7 @@ public abstract class AbstractDiscordSRV<
             results.addAll(moduleManager().reload());
         }
 
+        componentFactory().updateDefaultLocate(); // Update the default language everytime
         if (flags.contains(ReloadFlag.TRANSLATION)) {
             this.translationLoader.reload();
         }

@@ -24,6 +24,7 @@ import com.discordsrv.unrelocate.net.kyori.adventure.text.flattener.FlattenerLis
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.util.TriState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,10 +32,13 @@ import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.Locale;
 
+/**
+ * Helper class to translate components via Paper's PaperComponents class, which has language data for Minecraft and data packs.
+ * @see PaperComponentCheck#IS_AVAILABLE
+ */
 public final class PaperComponentFlattener {
 
     private static final ComponentFlattener FLATTENER = get();
-    public static boolean IS_AVAILABLE = FLATTENER != null;
 
     private static ComponentFlattener get() {
         try {
@@ -77,16 +81,24 @@ public final class PaperComponentFlattener {
         }
 
         @Override
+        public @NotNull TriState hasAnyTranslations() {
+            return TriState.TRUE;
+        }
+
+        @Override
         public @Nullable Component translate(
                 @NotNull TranslatableComponent component,
                 @NotNull Locale locale
         ) {
             String translation = flatten(component);
             if (translation == null) {
-                translation = component.fallback();
+                return null;
             }
-            if (translation == null) {
-                translation = component.key();
+
+            String fallback = component.fallback();
+            if ((fallback != null && fallback.equals(translation)) || component.key().equals(translation)) {
+                // Didn't translate anything
+                return null;
             }
 
             return Component.text()

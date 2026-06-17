@@ -1,0 +1,16 @@
+plugins.apply "dev.kikugie.stonecutter"
+
+stonecutter {
+    active "1.21.11-neoforge" /* [SC] DO NOT EDIT */
+
+    parameters {
+        def (version, loader) = sc.current.project.split('-', 2)
+        //properties.tags(version, loader)
+        constants.match(loader, "fabric", "neoforge")
+
+        def minecraft = node.project.property("minecraft.version_range_label").split("-")[0]
+        if (minecraft != "[VERSIONED]") {
+            dependencies["minecraft"] = minecraft
+        }
+    }
+}

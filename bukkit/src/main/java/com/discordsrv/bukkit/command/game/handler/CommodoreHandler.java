@@ -27,6 +27,7 @@ import me.lucko.commodore.Commodore;
 import me.lucko.commodore.CommodoreProvider;
 import org.bukkit.command.Command;
 
+// Commodore doesn't make full use of Brigadier, command executions will still use the "legacy" way via the superclass
 public class CommodoreHandler extends BukkitBasicCommandHandler implements ICommandHandler {
 
     private final Commodore commodore;
@@ -40,6 +41,7 @@ public class CommodoreHandler extends BukkitBasicCommandHandler implements IComm
     protected void registerPluginCommand(Command command, GameCommand gameCommand) {
         super.registerPluginCommand(command, gameCommand);
 
+        // The sender (last parameter) cannot be mapped here, as Commodore doesn't map the sender to a Bukkit one.
         LiteralCommandNode<?> commandNode = BrigadierUtil.convertToBrigadier(discordSRV, gameCommand, null);
         commodore.register(command, commandNode, sender -> gameCommand.hasPermission(discordSRV.playerProvider().player(sender)));
         logger.debug(command.getName() + " registered to Commodore");

@@ -26,6 +26,7 @@ import com.discordsrv.api.discord.entity.DiscordUser;
 import com.discordsrv.api.discord.entity.channel.DiscordMessageChannel;
 import com.discordsrv.api.discord.entity.guild.DiscordGuild;
 import com.discordsrv.api.discord.entity.guild.DiscordGuildMember;
+import com.discordsrv.api.discord.entity.guild.DiscordRole;
 import com.discordsrv.api.discord.entity.message.ReceivedDiscordMessage;
 import com.discordsrv.api.eventbus.Subscribe;
 import com.discordsrv.api.events.discord.message.DiscordMessageDeleteEvent;
@@ -41,6 +42,7 @@ import com.discordsrv.common.abstraction.player.IPlayer;
 import com.discordsrv.common.config.main.channels.DiscordToMinecraftChatConfig;
 import com.discordsrv.common.config.main.channels.base.BaseChannelConfig;
 import com.discordsrv.common.config.main.generic.DiscordIgnoresConfig;
+import com.discordsrv.common.core.component.renderer.DiscordSRVMinecraftRenderer;
 import com.discordsrv.common.core.logging.NamedLogger;
 import com.discordsrv.common.core.module.type.AbstractModule;
 import com.discordsrv.common.util.ComponentUtil;
@@ -153,14 +155,48 @@ public class DiscordToMinecraftChatModule extends AbstractModule<DiscordSRV> {
         }
     }
 
-    public static String filterMessage(String message, DiscordToMinecraftChatConfig config) {
-        Placeholders placeholders = new Placeholders(message);
+    public static Component convertToComponent(DiscordSRV discordSRV, ReceivedDiscordMessage message, BaseChannelConfig config) {
+        DiscordToMinecraftChatConfig discordConfig = config.discordToMinecraft;
+
+        Placeholders placeholders = new Placeholders(message.getContent());
         placeholders.replaceAll(ASCII_CONTROL_FILTER, "");
-        if (config.unicodeEmojiBehaviour == DiscordToMinecraftChatConfig.EmojiBehaviour.HIDE) {
+        if (discordConfig.unicodeEmojiBehaviour == DiscordToMinecraftChatConfig.EmojiBehaviour.HIDE) {
             placeholders.replaceAll(EMOJI_FILTER, "");
         }
-        config.contentRegexFilters.forEach(placeholders::replaceAll);
-        return placeholders.toString();
+        discordConfig.contentRegexFilters.forEach(placeholders::replaceAll);
+
+        String discordMessage = placeholders.toString();
+        if (discordMessage.trim().isEmpty()) {
+            return Component.empty();
+        }
+
+        DiscordToMinecraftChatConfig.FormattingLimitConfig formattingLimit = discordConfig.formattingLimit;
+        DiscordUser user = message.getAuthor();
+        DiscordGuildMember member = message.getMember();
+        boolean allowed = formattingLimit.roleWebhookAndUserIds.stream().anyMatch(id -> {
+            if (id == user.getId()) {
+                return true;
+            }
+            if (member == null) {
+                return false;
+            }
+            for (DiscordRole role : member.getRoles()) {
+                if (role.getId() == id) {
+                    return true;
+                }
+            }
+            return false;
+        }) != formattingLimit.blacklist;
+
+        return DiscordSRVMinecraftRenderer.getWithContext(
+                message.getGuild(),
+                message.getAuthor(),
+                message.getMentionedUsers(),
+                message.getMentionedMembers(),
+                config,
+                allowed,
+                () -> discordSRV.componentFactory().minecraftSerializer().serialize(discordMessage)
+        );
     }
 
     @Subscribe(ignoreCancelled = false, ignoreProcessed = false)
@@ -206,16 +242,9 @@ public class DiscordToMinecraftChatModule extends AbstractModule<DiscordSRV> {
         }
 
         boolean attachments = !discordMessage.getAttachments().isEmpty() && format.contains("message_attachments");
-        String filteredMessage = filterMessage(event.getContent(), chatConfig);
-        if (filteredMessage.trim().isEmpty() && !attachments) {
-            // No sending empty message #2
-            logger().debug("Message from " + author + " in " + describeChannel(gameChannel) + " filtered entirely after regex filtering");
-            return;
-        }
-
-        Component messageComponent = discordSRV.componentFactory().minecraftSerialize(discordMessage, channelConfig, filteredMessage);
+        Component messageComponent = convertToComponent(discordSRV, discordMessage, channelConfig);
         if (ComponentUtil.isEmpty(messageComponent) && !attachments) {
-            // No sending empty message #3
+            // No sending empty message #2
             logger().debug("Message from " + author + " in " + describeChannel(gameChannel) + " filtered entirely after serialization");
             return;
         }
@@ -228,8 +257,8 @@ public class DiscordToMinecraftChatModule extends AbstractModule<DiscordSRV> {
                 .addPlaceholder("message", messageComponent)
                 .build();
         if (ComponentUtil.isEmpty(message)) {
+            // No sending empty message #3
             logger().debug("Message from " + author + " in " + describeChannel(gameChannel) + " filtered entirely after building message");
-            // No sending empty message #4
             return;
         }
 

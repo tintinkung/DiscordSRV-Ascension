@@ -108,8 +108,8 @@ public class DiscordToMinecraftChatConfig {
     @ConfigSerializable
     public static class FormattingLimitConfig {
 
-        @Comment("The role and user ids that should/should not have their markdown formatting converted in Minecraft")
-        public List<Long> roleAndUserIds = new ArrayList<>();
+        @Comment("The role, webhook and user ids that should/should not have their markdown formatting converted in Minecraft")
+        public List<Long> roleWebhookAndUserIds = new ArrayList<>();
 
         @Comment("true for blacklisting the specified roles and users, false for whitelisting")
         public boolean blacklist = true;
