@@ -128,6 +128,15 @@ public interface SendableDiscordMessage {
      */
     boolean isSuppressedEmbeds();
 
+    //FORK START - components V2 support
+    /**
+     * If any componentsV2 is added in this message.
+     *
+     * @return If this message is sending as Components V2
+     */
+    boolean isUsingComponentsV2();
+    //FORK END
+
     /**
      * Gets the id for the message this message is in reply to
      * @return the message id
@@ -192,6 +201,8 @@ public interface SendableDiscordMessage {
         Builder addComponent(MessageComponent<?> component);
 
         Builder addActionRow(ActionRowComponent<?>... row);
+
+        Builder forceComponentsV2();
 
         /**
          * Gets the allowed mentions in this builder.

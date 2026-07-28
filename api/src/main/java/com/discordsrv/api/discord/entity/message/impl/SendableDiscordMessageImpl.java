@@ -64,6 +64,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
     private final Map<InputStream, String> attachments;
     private final boolean suppressedNotifications;
     private final boolean suppressedEmbeds;
+    private final boolean useComponentsV2;
     private final Long replyingToMessageId;
 
     protected SendableDiscordMessageImpl(
@@ -76,6 +77,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
             Map<InputStream, String> attachments,
             boolean suppressedNotifications,
             boolean suppressedEmbeds,
+            boolean useComponentsV2,
             Long replyingToMessageId
     ) {
         this.content = content;
@@ -87,6 +89,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
         this.attachments = Collections.unmodifiableMap(attachments);
         this.suppressedNotifications = suppressedNotifications;
         this.suppressedEmbeds = suppressedEmbeds;
+        this.useComponentsV2 = useComponentsV2;
         this.replyingToMessageId = replyingToMessageId;
     }
 
@@ -101,6 +104,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
                 attachments,
                 suppressedNotifications,
                 suppressedEmbeds,
+                useComponentsV2,
                 replyingToMessageId
         );
     }
@@ -151,6 +155,10 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
         return suppressedEmbeds;
     }
 
+    public boolean isUsingComponentsV2() {
+        return useComponentsV2;
+    }
+
     @Override
     public Long getMessageIdToReplyTo() {
         return replyingToMessageId;
@@ -172,6 +180,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
         private final Map<InputStream, String> attachments = new LinkedHashMap<>();
         private boolean suppressedNotifications;
         private boolean suppressedEmbeds;
+        private boolean useComponentsV2;
         private Long replyingToMessageId;
 
         @Override
@@ -211,6 +220,18 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
         @Override
         public Builder addComponent(MessageComponent<?> component) {
             components.add(component);
+        //FORK START - components V2 support
+            // ANY message components except action row are components V2
+            if(!(component.asJDA() instanceof ActionRow))
+                if(!this.useComponentsV2) this.useComponentsV2 = true;
+
+            return this;
+        }
+
+        public Builder forceComponentsV2() {
+            if(!this.useComponentsV2)
+                this.useComponentsV2 = true;
+        //FORK END
             return this;
         }
 
@@ -306,7 +327,7 @@ public class SendableDiscordMessageImpl implements SendableDiscordMessage {
 
         @Override
         public @NotNull SendableDiscordMessage build() {
-            return new SendableDiscordMessageImpl(content, embeds, components, allowedMentions, webhookUsername, webhookAvatarUrl, attachments, suppressedNotifications, suppressedEmbeds, replyingToMessageId);
+            return new SendableDiscordMessageImpl(content, embeds, components, allowedMentions, webhookUsername, webhookAvatarUrl, attachments, suppressedNotifications, suppressedEmbeds, useComponentsV2, replyingToMessageId);
         }
 
         @Override
