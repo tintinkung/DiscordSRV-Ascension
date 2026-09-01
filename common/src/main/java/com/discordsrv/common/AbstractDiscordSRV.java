@@ -71,15 +71,11 @@ import com.discordsrv.common.core.storage.impl.MemoryStorage;
 import com.discordsrv.common.core.update.UpdateChecker;
 import com.discordsrv.common.discord.api.DiscordAPIEventModule;
 import com.discordsrv.common.discord.api.DiscordAPIImpl;
-import com.discordsrv.common.discord.connection.DiscordConnectionManager;
 import com.discordsrv.common.discord.connection.details.DiscordConnectionDetailsImpl;
 import com.discordsrv.common.discord.connection.jda.JDAConnectionManager;
 import com.discordsrv.common.events.lifecycle.ServerStartedEvent;
 import com.discordsrv.common.exception.StorageException;
-import com.discordsrv.common.feature.DiscordInviteModule;
-import com.discordsrv.common.feature.PlayerListModule;
-import com.discordsrv.common.feature.PresenceUpdaterModule;
-import com.discordsrv.common.feature.WorldChannelModule;
+import com.discordsrv.common.feature.*;
 import com.discordsrv.common.feature.bansync.BanSyncModule;
 import com.discordsrv.common.feature.channel.ChannelLockingModule;
 import com.discordsrv.common.feature.channel.ChannelUpdaterModule;
@@ -87,11 +83,7 @@ import com.discordsrv.common.feature.channel.global.GlobalChannelLookupModule;
 import com.discordsrv.common.feature.console.ConsoleModule;
 import com.discordsrv.common.feature.customcommands.CustomCommandModule;
 import com.discordsrv.common.feature.groupsync.GroupSyncModule;
-import com.discordsrv.common.feature.linking.LinkProvider;
-import com.discordsrv.common.feature.linking.LinkedRoleModule;
-import com.discordsrv.common.feature.linking.LinkPesteringModule;
-import com.discordsrv.common.feature.linking.LinkingModule;
-import com.discordsrv.common.feature.linking.LinkingRewardsModule;
+import com.discordsrv.common.feature.linking.*;
 import com.discordsrv.common.feature.linking.impl.MinecraftAuthenticationLinker;
 import com.discordsrv.common.feature.linking.impl.StorageLinker;
 import com.discordsrv.common.feature.mention.cache.MentionCachingModule;
@@ -192,6 +184,7 @@ public abstract class AbstractDiscordSRV<
     protected VersionInfo versionInfo;
 
     private final ZonedDateTime initializeTime = ZonedDateTime.now();
+    private ZonedDateTime startTime;
 
     private OkHttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper()
@@ -621,6 +614,10 @@ public abstract class AbstractDiscordSRV<
         return serverStarted;
     }
 
+    public ZonedDateTime getStartTime() {
+        return startTime;
+    }
+
     public ZonedDateTime getInitializeTime() {
         return initializeTime;
     }
@@ -705,6 +702,7 @@ public abstract class AbstractDiscordSRV<
         placeholderService().addReLookup(Number.class, "numberformat");
         placeholderService().addReLookup(TemporalAccessor.class, "date");
         placeholderService().addReLookup(Duration.class, "duration");
+        placeholderService().addReLookup(MemoryContext.Bytes.class, "bytes");
         placeholderService().addReLookup(Color.class, "color");
         placeholderService().addReLookup(Profile.class, "profile");
         placeholderService().addReLookup(IPlayer.class, "player");
@@ -720,9 +718,9 @@ public abstract class AbstractDiscordSRV<
         placeholderService().addGlobalContext(new TextHandlingContext(this));
         placeholderService().addGlobalContext(new DateFormattingContext(this));
         placeholderService().addGlobalContext(new NumberFormattingContext(this));
+        placeholderService().addGlobalContext(new MemoryContext(this));
         placeholderService().addGlobalContext(new GamePermissionContext(this));
         placeholderService().addGlobalContext(new ReceivedDiscordMessageContext(this));
-        placeholderService().addGlobalContext(new AvatarProviderContext(this));
         placeholderService().addGlobalContext(new DiscordEntityContext(this));
         placeholderService().addGlobalContext(new DiscordGuildMemberContext());
         placeholderService().addGlobalContext(new DebugContext(this));
@@ -758,6 +756,7 @@ public abstract class AbstractDiscordSRV<
         registerModule(NicknameSyncModule::new);
         registerModule(PlayerListModule::new);
         registerModule(OnlineRoleModule::new);
+        registerModule(AvatarProviderModule::new);
         registerModule(LinkingRewardsModule::new);
         registerModule(StartMessageModule::new);
         registerModule(StopMessageModule::new);
@@ -771,6 +770,9 @@ public abstract class AbstractDiscordSRV<
             registerModule(AdvancementMessageModule::new);
             registerModule(DeathMessageModule::new);
         }
+
+        // Integrations
+        registerIntegration("com.discordsrv.common.integration.SkinsRestorerIntegration");
 
         // Chat Integrations
         registerIntegration("com.discordsrv.common.integration.chat.CarbonChatIntegration");
@@ -803,6 +805,7 @@ public abstract class AbstractDiscordSRV<
     @MustBeInvokedByOverriders
     protected void serverStarted() {
         serverStarted = true;
+        startTime = ZonedDateTime.now();
         eventBus().publish(new ServerStartedEvent());
         logger().debug("Server started");
     }
@@ -911,7 +914,10 @@ public abstract class AbstractDiscordSRV<
 
             try {
                 try {
-                    StorageType storageType = getStorageType();
+                    StorageType storageType = connectionConfig().storage.backend;
+                    if (storageType == StorageType.MEMORY && !MemoryStorage.ENABLED) {
+                        storageType = StorageType.H2;
+                    }
                     logger().info("Using " + storageType.prettyName() + " as storage, loading drivers...");
                     if (storageType == StorageType.MEMORY) {
                         logger().warning("Using memory as storage backend.");
@@ -986,7 +992,7 @@ public abstract class AbstractDiscordSRV<
 
         if (flags.contains(ReloadFlag.DISCORD_CONNECTION)) {
             // Shutdown will not fail even if not connected
-            discordConnectionManager.shutdown(DiscordConnectionManager.DEFAULT_SHUTDOWN_TIMEOUT);
+            discordConnectionManager.shutdown();
 
             discordConnectionManager.connect();
             if (!initial) {
@@ -1017,19 +1023,6 @@ public abstract class AbstractDiscordSRV<
         }
 
         return results;
-    }
-
-    private StorageType getStorageType() {
-        String backend = connectionConfig().storage.backend;
-        switch (backend.toLowerCase(Locale.ROOT)) {
-            case "h2": return StorageType.H2;
-            case "mysql": return StorageType.MYSQL;
-            case "mariadb": return StorageType.MARIADB;
-        }
-        if (backend.equals(MemoryStorage.IDENTIFIER)) {
-            return StorageType.MEMORY;
-        }
-        throw new StorageException("Unknown storage backend \"" + backend + "\"");
     }
 
     @SuppressWarnings("resource") // Closed instantly

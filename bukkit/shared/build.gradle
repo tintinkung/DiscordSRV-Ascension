@@ -1,7 +1,6 @@
 import dev.vankka.dependencydownload.task.GenerateDependencyDownloadResourceTask
 
 repositories {
-    maven { url = 'https://nexus.scarsz.me/content/groups/public/' }
     exclusiveContent {
         forRepository {
             maven { url = 'https://repo.essentialsx.net/releases/' }
@@ -10,32 +9,7 @@ repositories {
             includeGroup 'net.essentialsx'
         }
     }
-    exclusiveContent {
-        forRepository {
-            maven { url = 'https://jitpack.io' }
-        }
-        filter {
-            includeGroup 'com.github.DevLeoko'
-            includeGroup 'com.github.DevLeoko.AdvancedBan'
-        }
-    }
-    exclusiveContent {
-        forRepository {
-            maven { url = 'https://mvn-repo.arim.space/affero-gpl3/' }
-        }
-        filter {
-            includeGroup 'space.arim.libertybans'
-        }
-    }
-    exclusiveContent {
-        forRepository {
-            maven { url = 'https://mvn-repo.arim.space/lesser-gpl3/' }
-        }
-        filter {
-            includeGroup 'space.arim.omnibus'
-            includeGroup 'space.arim.parent'
-        }
-    }
+    maven { url = 'https://nexus.scarsz.me/content/groups/public/' }
 }
 
 configurations {
@@ -49,16 +23,27 @@ tasks.register('generateResourceForCommodore', GenerateDependencyDownloadResourc
     file = 'dependencies/' + conf.name + '.txt'
 }
 
+def verifyLatestBukkit = System.getenv("verify-latest-bukkit") == "true" || providers.gradleProperty("verify-latest-bukkit").get() == "true"
+java {
+    if (verifyLatestBukkit) {
+        disableAutoTargetJvm() // Requires Java 25, we target 21
+    }
+}
+
 dependencies {
     // API
     annotationProcessor project(':api')
 
     // Platform
-    compileOnly(libs.bukkit.minimum)
-
-    // Adventure
-    runtimeDownloadApi(libs.adventure.api)
-    runtimeDownloadApi(libs.adventure.platform.bukkit)
+    if (verifyLatestBukkit) {
+        compileOnly(libs.paperapi.latest) {
+            exclude module: 'slf4j-api'
+        }
+    } else {
+        compileOnly(libs.bukkit.minimum) {
+            exclude group: 'commons-lang', module: 'commons-lang'
+        }
+    }
 
     // Commodore
     commodore(libs.commodore) {
@@ -78,7 +63,7 @@ dependencies {
 
     // Punishments Integrations
     compileOnly(libs.libertybans)
-    compileOnly(libs.advancedban)
+    compileOnly(variantOf(libs.advancedban) { classifier('RELEASE') })
 
     // Chat Integrations
     compileOnly(libs.chatty)
@@ -88,7 +73,10 @@ dependencies {
     compileOnly(libs.mcmmo)
     compileOnly(libs.townychat)
     compileOnly(libs.venturechat)
-    compileOnly(libs.essentialsx)
+    compileOnly(libs.essentialsx) {
+        exclude module: 'spigot-api'
+        exclude module: 'paper-api'
+    }
 }
 
 processResources {

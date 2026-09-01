@@ -45,7 +45,8 @@ public class GroupSyncConfig {
                         set.includeInherited,
                         set.direction,
                         set.timer,
-                        set.tieBreakers
+                        set.tieBreakers,
+                        set.unlinkBehaviour
                 ));
             }
         }
@@ -55,8 +56,9 @@ public class GroupSyncConfig {
     @ConfigSerializable
     public static class SetConfig extends SyncConfig {
 
-        @Comment("LuckPerms context values, used when adding, removing and checking the groups of players.\n"
-                + "The format is: {\"context\": [\"value\"]}")
+        @Comment("""
+                LuckPerms context values, used when adding, removing and checking the groups of players.
+                The format is: {"context": ["value"]}""")
         public Map<String, List<String>> contexts = new LinkedHashMap<>();
 
         @Comment("If inherited groups should be included when checking if the Player has a group. Only works with LuckPerms")
@@ -90,15 +92,14 @@ public class GroupSyncConfig {
                 boolean includeInherited,
                 SyncDirection direction,
                 TimerConfig timer,
-                TieBreakers tieBreakers
+                TieBreakers tieBreakers,
+                UnlinkBehaviour unlinkBehaviour
         ) {
+            super(direction, timer, tieBreakers, unlinkBehaviour);
             this.groupName = groupName;
             this.roleId = roleId;
             this.contexts = contexts;
             this.includeInherited = includeInherited;
-            this.direction = direction;
-            this.timer = timer;
-            this.tieBreakers = tieBreakers;
         }
 
         public boolean isSet() {

@@ -18,6 +18,7 @@
 
 package com.discordsrv.common.config.connection;
 
+import com.discordsrv.common.core.storage.StorageType;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Comment;
 
@@ -28,11 +29,13 @@ import java.util.Properties;
 @ConfigSerializable
 public class StorageConfig {
 
-    @Comment("The storage backend to use.\n\n"
-            + "- H2\n"
-            + "- MySQL\n"
-            + "- MariaDB")
-    public String backend = "H2";
+    @Comment("""
+            The storage backend to use.
+            
+            - H2
+            - MySQL
+            - MariaDB""")
+    public StorageType backend = StorageType.H2;
 
     @Comment("SQL table prefix")
     public String sqlTablePrefix = "discordsrv_";
@@ -41,7 +44,7 @@ public class StorageConfig {
     public Remote remote = new Remote();
 
     @Comment("Extra connection properties for database drivers")
-    public Map<String, String> driverProperties = new LinkedHashMap<String, String>() {{
+    public Map<String, String> driverProperties = new LinkedHashMap<>() {{
         put("useSSL", "false");
     }};
 
@@ -63,10 +66,11 @@ public class StorageConfig {
 
     public static class Remote {
 
-        @Comment("The database address.\n"
-                + "Uses the default port (MySQL: 3306)\n"
-                + "for the database if a port isn't specified in the \"address:port\" format\n"
-                + "Please make sure the port for your database is open and your firewall(s) allow(s) connections from the server to the database")
+        @Comment("""
+                The database address.
+                Uses the default port (MySQL: 3306)
+                for the database if a port isn't specified in the "address:port" format
+                Please make sure the port for your database is open and your firewall(s) allow(s) connections from the server to the database""")
         public String databaseAddress = "localhost";
 
         @Comment("The name of the database")
@@ -89,14 +93,16 @@ public class StorageConfig {
         @Comment("The minimum number of concurrent connections to keep to the database")
         public int minimumPoolSize = 2;
 
-        @Comment("How frequently to attempt to keep connections alive, in order to prevent being timed out by the database or network infrastructure.\n"
-                + "The time is specified in milliseconds. Use 0 to disable keepalive."
-                + "The default is 0 (disabled)")
+        @Comment("""
+                How frequently to attempt to keep connections alive, in order to prevent being timed out by the database or network infrastructure.
+                The time is specified in milliseconds. Use 0 to disable keepalive.
+                The default is 0 (disabled)""")
         public long keepaliveTime = 0;
 
-        @Comment("The maximum time a connection will be kept open in milliseconds.\n"
-                + "The time is specified in milliseconds. Must be at least 30000ms (30 seconds)"
-                + "The default is 1800000ms (30 minutes)")
+        @Comment("""
+                The maximum time a connection will be kept open in milliseconds.
+                The time is specified in milliseconds. Must be at least 30000ms (30 seconds)
+                The default is 1800000ms (30 minutes)""")
         public long maximumLifetime = 1800000;
 
     }

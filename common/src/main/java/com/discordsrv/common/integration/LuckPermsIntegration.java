@@ -22,9 +22,10 @@ import com.discordsrv.api.discord.entity.DiscordUser;
 import com.discordsrv.api.discord.entity.guild.DiscordGuildMember;
 import com.discordsrv.api.discord.entity.guild.DiscordRole;
 import com.discordsrv.api.eventbus.Subscribe;
-import com.discordsrv.api.events.linking.AccountLinkedEvent;
 import com.discordsrv.api.events.linking.AccountUnlinkedEvent;
+import com.discordsrv.api.events.profile.ProfileLoadedEvent;
 import com.discordsrv.api.module.type.PermissionModule;
+import com.discordsrv.api.profile.Profile;
 import com.discordsrv.api.task.Task;
 import com.discordsrv.common.DiscordSRV;
 import com.discordsrv.common.core.logging.NamedLogger;
@@ -36,7 +37,9 @@ import com.discordsrv.common.feature.linking.AccountLink;
 import com.discordsrv.common.feature.linking.LinkProvider;
 import com.github.benmanes.caffeine.cache.Cache;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.guild.member.GenericGuildMemberEvent;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
@@ -325,13 +328,19 @@ public class LuckPermsIntegration<T> extends PluginIntegration<DiscordSRV> imple
     }
 
     @Subscribe
-    public void onAccountLinked(AccountLinkedEvent event) {
+    public void onAccountUnlinked(AccountUnlinkedEvent event) {
         contextCache.put(event.getPlayerUUID(), buildContext(event.getPlayerUUID()));
     }
 
     @Subscribe
-    public void onAccountUnlinked(AccountUnlinkedEvent event) {
-        contextCache.put(event.getPlayerUUID(), buildContext(event.getPlayerUUID()));
+    public void onProfileLoaded(ProfileLoadedEvent event) {
+        Profile profile = event.profile();
+        UUID playerUUID = profile.playerUUID();
+        if (playerUUID == null) {
+            return;
+        }
+
+        contextCache.put(playerUUID, buildContext(playerUUID));
     }
 
     @Subscribe
@@ -353,7 +362,7 @@ public class LuckPermsIntegration<T> extends PluginIntegration<DiscordSRV> imple
     public void calculate(@NonNull T target, @NonNull ContextConsumer consumer) {}
 
     public void calculate(@NonNull UUID target, @NonNull ContextConsumer consumer) {
-            consumer.accept(getContext(target));
+        consumer.accept(getContext(target));
     }
 
     @NonNull

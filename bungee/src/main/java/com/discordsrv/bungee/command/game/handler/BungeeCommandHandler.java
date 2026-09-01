@@ -55,7 +55,7 @@ public class BungeeCommandHandler extends BasicCommandHandler {
         } else if (sender == discordSRV.proxy().getConsole()) {
             return discordSRV.console();
         } else {
-            return new BungeeCommandSender(discordSRV, sender, () -> discordSRV.audiences().sender(sender));
+            return new BungeeCommandSender(discordSRV, sender);
         }
     }
 
@@ -64,7 +64,7 @@ public class BungeeCommandHandler extends BasicCommandHandler {
         private final GameCommand command;
 
         public BungeeCommand(GameCommand command) {
-            super(command.getLabel(), command.getRequiredPermission().permission());
+            super(command.getLabel(), command.getRequiredPermission().fullPermission());
             this.command = command;
         }
 

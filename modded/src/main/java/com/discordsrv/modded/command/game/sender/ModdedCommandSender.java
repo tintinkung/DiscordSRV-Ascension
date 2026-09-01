@@ -35,10 +35,12 @@ public class ModdedCommandSender implements ICommandSender {
 
     protected final ModdedDiscordSRV discordSRV;
     protected CommandSourceStack commandSource;
+    protected Audience audience;
 
     public ModdedCommandSender(ModdedDiscordSRV discordSRV, CommandSourceStack commandSource) {
         this.discordSRV = discordSRV;
         this.commandSource = commandSource;
+        this.audience = discordSRV.componentFactory().audience(commandSource);
     }
 
     @Override
@@ -46,15 +48,16 @@ public class ModdedCommandSender implements ICommandSender {
         int defaultLevel = permission.requiresOpByDefault() ? 4 : 0;
 
         //? if fabric
-        return me.lucko.fabric.api.permissions.v0.Permissions.check(commandSource, permission.permission(), defaultLevel);
+        return me.lucko.fabric.api.permissions.v0.Permissions.check(commandSource, permission.fullPermission(), defaultLevel);
 
         //? if neoforge {
         /*if (commandSource.getPlayer() != null) {
-            if (permission.node() != null) {
-                net.neoforged.neoforge.server.permission.nodes.PermissionDynamicContext<String> context = com.discordsrv.neoforge.DiscordSRVNeoForgePermissionAPI.STRING_ID.createContext(permission.node());
-                return net.neoforged.neoforge.server.permission.PermissionAPI.getPermission(commandSource.getPlayer(), com.discordsrv.neoforge.DiscordSRVNeoForgePermissionAPI.permissionNodes.get(permission.strippedPermission()), context);
+            com.discordsrv.neoforge.DiscordSRVNeoForgePermissionAPI.NeoForgePermission neoforgePermission = com.discordsrv.neoforge.DiscordSRVNeoForgePermissionAPI.permissionNodes.get(permission.template());
+            if (permission instanceof Permission.Parameterized parameterizedPermission) {
+                net.neoforged.neoforge.server.permission.nodes.PermissionDynamicContext<String> context = neoforgePermission.dynamicContextKey().createContext(parameterizedPermission.parameter());
+                return net.neoforged.neoforge.server.permission.PermissionAPI.getPermission(commandSource.getPlayer(), neoforgePermission.node(), context);
             } else {
-                return net.neoforged.neoforge.server.permission.PermissionAPI.getPermission(commandSource.getPlayer(), com.discordsrv.neoforge.DiscordSRVNeoForgePermissionAPI.permissionNodes.get(permission.strippedPermission()));
+                return net.neoforged.neoforge.server.permission.PermissionAPI.getPermission(commandSource.getPlayer(), neoforgePermission.node());
             }
         } else {
             //? if minecraft: >=1.21.11 {
@@ -72,8 +75,8 @@ public class ModdedCommandSender implements ICommandSender {
     }
 
     @Override
-    public @NotNull Audience audience() {
-        return discordSRV.componentFactory().audience(commandSource);
+    public void sendMessage(@NotNull net.kyori.adventure.text.Component message) {
+        audience.sendMessage(message);
     }
 
     public static CommandSourceStack getCommandSource(MinecraftServer server, String name) {
@@ -83,9 +86,11 @@ public class ModdedCommandSender implements ICommandSender {
     public static CommandSourceStack getCommandSource(MinecraftServer server, CommandSource source, String name) {
         ServerLevel level = server.overworld();
 
-        //? if minecraft: >=1.21.9 {
-        Vec3 spawnPos = level == null ? Vec3.ZERO : level.getRespawnData().pos().getCenter();
-        //?} else {
+        //? if minecraft: >=26.2 {
+        Vec3 spawnPos = level == null ? Vec3.ZERO : Vec3.atCenterOf(level.getRespawnData().pos());
+        //?} else if minecraft: >=1.21.9 {
+        /*Vec3 spawnPos = level == null ? Vec3.ZERO : level.getRespawnData().pos().getCenter();
+         *///?} else {
         /*Vec3 spawnPos = Vec3.atLowerCornerOf(level.getSharedSpawnPos());
          *///?}
 

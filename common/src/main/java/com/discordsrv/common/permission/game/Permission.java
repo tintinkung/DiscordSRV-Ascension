@@ -18,78 +18,29 @@
 
 package com.discordsrv.common.permission.game;
 
-import org.jetbrains.annotations.Nullable;
-
-import java.util.HashSet;
-
-public interface Permission {
+public interface Permission extends PermissionTemplate {
 
     String PERMISSION_PREFIX = "discordsrv.";
 
-    HashSet<Permission> allPermissions = new HashSet<>();
-
-    String permission();
-    String strippedPermission();
-    @Nullable String node();
-
-    /**
-     * If a given permission's default should be OP, rather than being granted by default.
-     * @return {@code true} if the permission should be restricted to, at least OPs
-     */
-    boolean requiresOpByDefault();
-
-    static Permission of(String permission) {
-        return of(permission, null);
+    default String fullPermission() {
+        return PERMISSION_PREFIX + permissionNode();
     }
 
-    static Permission of(String permission, String node) {
-        return of(permission, node, true);
-    }
+    PermissionTemplate template();
 
-    static Permission of(String permission, String node, boolean requiresOpByDefault) {
-        return ofGeneric(permission, node, requiresOpByDefault);
-    }
+    interface Parameterized extends Permission {
 
-    static Permission ofGeneric(String permission) {
-        return ofGeneric(permission, null, true);
-    }
+        String permissionNodePrefix();
 
-    static Permission ofGeneric(String permission, String node, boolean requiresOpByDefault) {
-        return new Dynamic(permission, node, requiresOpByDefault);
-    }
+        String parameterName();
+        String parameter();
 
-    class Dynamic implements Permission {
-
-        private final String permission;
-        private final String node;
-        private final boolean requiresOpByDefault;
-
-        public Dynamic(String permission, String node, boolean requiresOpByDefault) {
-            this.permission = permission;
-            this.node = node;
-            this.requiresOpByDefault = requiresOpByDefault;
-
-            allPermissions.add(this);
+        @Override
+        default String permissionNode() {
+            return permissionNodePrefix() + "." + parameter();
         }
 
         @Override
-        public String permission() {
-            return PERMISSION_PREFIX + permission + (node != null ? "." + node : "");
-        }
-
-        public String strippedPermission() {
-            return permission;
-        }
-
-        @Override
-        public @Nullable String node() {
-            return node;
-        }
-
-        @Override
-        public boolean requiresOpByDefault() {
-            return requiresOpByDefault;
-        }
+        PermissionTemplate.Parameterized template();
     }
-
 }

@@ -21,7 +21,6 @@ package com.discordsrv.modded.player;
 import com.discordsrv.api.task.Task;
 import com.discordsrv.common.DiscordSRV;
 import com.discordsrv.common.abstraction.player.IPlayer;
-import com.discordsrv.common.abstraction.player.provider.model.SkinInfo;
 import com.discordsrv.common.util.ComponentUtil;
 import com.discordsrv.modded.ModdedDiscordSRV;
 import com.discordsrv.modded.accessor.ServerPlayerEntityAccessor;
@@ -112,56 +111,13 @@ public class ModdedPlayer extends ModdedCommandSender implements IPlayer {
     }
 
     @Override
-    public @Nullable SkinInfo skinInfo() {
-        int playerModelParts = ((ServerPlayerEntityAccessor) player).discordsrv$getPlayerModelParts();
-
-        //? if minecraft: >1.20.2 {
-        //? if minecraft: >=1.21.9 {
-        com.mojang.authlib.minecraft.MinecraftProfileTextures textures = discordSRV.getServer().services().sessionService().getTextures(player.getGameProfile());
-        //?} else {
-        /*com.mojang.authlib.minecraft.MinecraftProfileTextures textures = discordSRV.getServer().getSessionService().getTextures(player.getGameProfile());
-        *///?}
-        if (!textures.equals(com.mojang.authlib.minecraft.MinecraftProfileTextures.EMPTY) && textures.skin() != null) {
-            String model = textures.skin().getMetadata("model");
-            if (model == null) model = "classic";
-
-            return new SkinInfo(textures.skin().getHash(), model, new SkinInfo.Parts(playerModelParts));
-        }
-        //?} else {
-        /*java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture.Type, com.mojang.authlib.minecraft.MinecraftProfileTexture> texturesMap = discordSRV.getServer().getSessionService().getTextures(player.getGameProfile(), false);
-        com.mojang.authlib.minecraft.MinecraftProfileTexture skinTexture = texturesMap.get(com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN);
-        String model;
-        if (skinTexture != null) {
-            model = skinTexture.getMetadata("model");
-            if (model == null) model = "classic";
-
-            return new SkinInfo(skinTexture.getHash(), model, new SkinInfo.Parts(playerModelParts));
-        }
-        *///?}
-        return null;
-    }
-
-    @Override
     public @NotNull Identity identity() {
-        //? if adventure: >=6 {
-        return net.kyori.adventure.platform.modcommon.MinecraftAudiences.identified(player).identity();
-        //?} else if fabric {
-        /*return net.kyori.adventure.platform.fabric.FabricAudiences.identified(player).identity();
-        *///?} else {
-        /*return Identity.identity(player.getUUID());
-        *///?}
+        return Identity.identity(player.getUUID());
     }
 
     @Override
     public @NotNull Component displayName() {
-        //? if adventure: >=5.3.0 {
-        return discordSRV.componentFactory().getAdventure().audience(player).getOrDefaultFrom(
-                Identity.DISPLAY_NAME,
-                () -> discordSRV.componentFactory().fromNative(player.getName())
-        );
-        //?} else {
-        /*return Component.text(player.getName().getString());
-        *///?}
+        return Component.text(player.getName().getString());
     }
 
     @Override

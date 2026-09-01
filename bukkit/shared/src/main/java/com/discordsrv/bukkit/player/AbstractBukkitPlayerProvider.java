@@ -1,0 +1,147 @@
+/*
+ * This file is part of DiscordSRV, licensed under the GPLv3 License
+ * Copyright (c) 2016-2026 Austin "Scarsz" Shapiro, Henri "Vankka" Schubin and DiscordSRV contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package com.discordsrv.bukkit.player;
+
+import com.discordsrv.api.eventbus.EventPriorities;
+import com.discordsrv.api.eventbus.Subscribe;
+import com.discordsrv.api.events.placeholder.PlaceholderContextMappingEvent;
+import com.discordsrv.api.task.Task;
+import com.discordsrv.bukkit.BukkitDiscordSRV;
+import com.discordsrv.common.abstraction.player.IOfflinePlayer;
+import com.discordsrv.common.abstraction.player.IPlayer;
+import com.discordsrv.common.abstraction.player.provider.ServerPlayerProvider;
+import net.kyori.adventure.audience.Audience;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+
+import java.util.UUID;
+import java.util.function.Supplier;
+
+public abstract class AbstractBukkitPlayerProvider extends ServerPlayerProvider<BukkitPlayer, BukkitDiscordSRV> implements Listener {
+
+    public AbstractBukkitPlayerProvider(BukkitDiscordSRV discordSRV) {
+        super(discordSRV);
+    }
+
+    protected abstract BukkitPlayer makePlayer(Player player);
+    protected abstract BukkitOfflinePlayer makeOfflinePlayer(OfflinePlayer offlinePlayer);
+    public abstract Audience toAudience(CommandSender commandSender);
+
+    @Subscribe(priority = EventPriorities.EARLIEST)
+    public void onPlaceholderContextMapping(PlaceholderContextMappingEvent event) {
+        event.map(Player.class, this::player);
+        event.map(OfflinePlayer.class, this::offlinePlayer);
+    }
+
+    @Override
+    public void subscribe() {
+        discordSRV.eventBus().subscribe(this);
+        discordSRV.server().getPluginManager().registerEvents(this, discordSRV.plugin());
+
+        // Add players that are already connected
+        for (Player player : discordSRV.server().getOnlinePlayers()) {
+            addPlayer(player, true);
+        }
+    }
+
+    @Override
+    public void unsubscribe() {
+        discordSRV.eventBus().unsubscribe(this);
+        HandlerList.unregisterAll(this);
+    }
+
+    // IPlayer
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        addPlayer(player, false);
+    }
+
+    private BukkitPlayer addPlayer(Player player, boolean initial) {
+        BukkitPlayer srvPlayer = addPlayer(player.getUniqueId(), makePlayer(player), initial);
+        if (srvPlayer != null) {
+            // Replace Player instance we're keeping
+            srvPlayer.setPlayer(player);
+        }
+        return srvPlayer;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        removePlayer(event.getPlayer().getUniqueId());
+    }
+
+    public BukkitPlayer player(Player player) {
+        BukkitPlayer srvPlayer = player(player.getUniqueId());
+        if (srvPlayer == null && player.isOnline()) {
+            // Something super early wants the online player, so we need to create it
+            srvPlayer = addPlayer(player, false);
+        }
+        if (srvPlayer == null) {
+            throw new IllegalStateException("Player not available");
+        }
+        return srvPlayer;
+    }
+
+    // IOfflinePlayer
+
+    private Task<IOfflinePlayer> getFuture(Supplier<OfflinePlayer> provider) {
+        return discordSRV.scheduler().supply(() -> {
+            OfflinePlayer offlinePlayer = provider.get();
+            if (offlinePlayer == null) {
+                return null;
+            }
+
+            return offlinePlayer(offlinePlayer);
+        });
+    }
+
+    @Override
+    public Task<IOfflinePlayer> lookupOfflinePlayer(UUID uuid) {
+        IPlayer player = player(uuid);
+        if (player != null) {
+            return Task.completed(player);
+        }
+
+        return getFuture(() -> discordSRV.server().getOfflinePlayer(uuid));
+    }
+
+    @SuppressWarnings("deprecation") // Shut up, I know
+    @Override
+    public Task<IOfflinePlayer> lookupOfflinePlayer(String username) {
+        IPlayer player = player(username);
+        if (player != null) {
+            return Task.completed(player);
+        }
+
+        return getFuture(() -> discordSRV.server().getOfflinePlayer(username));
+    }
+
+    public IOfflinePlayer offlinePlayer(OfflinePlayer offlinePlayer) {
+        return makeOfflinePlayer(offlinePlayer);
+    }
+}

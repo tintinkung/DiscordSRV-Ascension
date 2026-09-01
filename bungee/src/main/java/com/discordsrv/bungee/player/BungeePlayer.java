@@ -24,10 +24,8 @@ import com.discordsrv.bungee.command.game.sender.BungeeCommandSender;
 import com.discordsrv.bungee.component.util.BungeeComponentUtil;
 import com.discordsrv.common.DiscordSRV;
 import com.discordsrv.common.abstraction.player.IPlayer;
-import com.discordsrv.common.abstraction.player.provider.model.SkinInfo;
 import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.bungeecord.BungeeComponentSerializer;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +39,7 @@ public class BungeePlayer extends BungeeCommandSender implements IPlayer {
     private final Identity identity;
 
     public BungeePlayer(BungeeDiscordSRV discordSRV, ProxiedPlayer player) {
-        super(discordSRV, player, () -> discordSRV.audiences().player(player));
+        super(discordSRV, player);
         this.player = player;
         this.identity = Identity.identity(player.getUniqueId());
     }
@@ -58,7 +56,7 @@ public class BungeePlayer extends BungeeCommandSender implements IPlayer {
 
     @Override
     public Task<Void> kick(Component component) {
-        player.disconnect(BungeeComponentSerializer.get().serialize(component));
+        player.disconnect(BungeeComponentUtil.toBungee(component));
         return Task.completed(null);
     }
 
@@ -72,10 +70,7 @@ public class BungeePlayer extends BungeeCommandSender implements IPlayer {
         // API missing
     }
 
-    @Override
-    public @Nullable SkinInfo skinInfo() {
-        return null;
-    }
+    // skinInfo() now uses the default implementation in IOfflinePlayer
 
     @Override
     public @Nullable Locale locale() {

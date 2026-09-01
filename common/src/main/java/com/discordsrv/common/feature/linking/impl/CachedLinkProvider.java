@@ -22,16 +22,15 @@ import com.discordsrv.api.eventbus.EventPriorities;
 import com.discordsrv.api.eventbus.Subscribe;
 import com.discordsrv.api.task.Task;
 import com.discordsrv.common.DiscordSRV;
+import com.discordsrv.common.core.logging.Logger;
 import com.discordsrv.common.events.player.PlayerConnectedEvent;
 import com.discordsrv.common.feature.linking.AccountLink;
 import com.discordsrv.common.feature.linking.LinkProvider;
 import com.discordsrv.common.feature.linking.LinkStore;
-import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
-import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Expiry;
+import com.github.benmanes.caffeine.cache.*;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
@@ -39,57 +38,44 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 
 public abstract class CachedLinkProvider implements LinkProvider {
 
     private static final AccountLink UNLINKED = new AccountLink(new UUID(0, 0), -1L, LocalDateTime.now(), LocalDateTime.now());
 
     protected final DiscordSRV discordSRV;
+    protected final Logger logger;
     private final Cache<Long, AccountLink> userToPlayer;
     private final AsyncLoadingCache<UUID, AccountLink> playerToUser;
     private final Set<UUID> linkingAllowed = new CopyOnWriteArraySet<>();
 
-    public CachedLinkProvider(DiscordSRV discordSRV) {
+    public CachedLinkProvider(DiscordSRV discordSRV, Logger logger) {
         this.discordSRV = discordSRV;
+        this.logger = logger;
+
         this.userToPlayer = discordSRV.caffeineBuilder().build();
         this.playerToUser = discordSRV.caffeineBuilder()
-                .expireAfter(new Expiry<UUID, AccountLink>() {
-                    @Override
-                    public long expireAfterCreate(@NotNull UUID key, @NotNull AccountLink value, long currentTime) {
-                        return TimeUnit.MINUTES.toNanos(5);
-                    }
-
-                    @Override
-                    public long expireAfterUpdate(
-                            @NotNull UUID key,
-                            @NotNull AccountLink value,
-                            long currentTime,
-                            long currentDuration
-                    ) {
-                        return currentDuration;
-                    }
-
-                    @Override
-                    public long expireAfterRead(
-                            @NotNull UUID key,
-                            @NotNull AccountLink value,
-                            long currentTime,
-                            long currentDuration
-                    ) {
-                        return currentDuration;
-                    }
-                })
-                .removalListener((key, value, cause) -> {
-                    if (value != null) {
+                .refreshAfterWrite(Duration.ofMinutes(5))
+                .removalListener((RemovalListener<UUID, AccountLink>) (key, value, cause) -> {
+                    logger.trace("Removing " + key + " from cache (" + cause + ")");
+                    if (value != null && cause != RemovalCause.REPLACED) {
                         userToPlayer.invalidate(value.userId());
                     }
                 })
-                .buildAsync(new AsyncCacheLoader<UUID, AccountLink>() {
+                .buildAsync(new AsyncCacheLoader<>() {
                     @Override
                     public @NotNull CompletableFuture<AccountLink> asyncLoad(@NotNull UUID key, @NotNull Executor executor) {
+                        logger.trace("Loading " + key + " into cache");
                         return query(key, linkingAllowed.remove(key))
-                                .thenApply(opt -> opt.orElse(UNLINKED))
+                                .thenApply(optionalLink -> {
+                                    if (optionalLink.isEmpty()) {
+                                        return UNLINKED;
+                                    }
+
+                                    AccountLink link = optionalLink.get();
+                                    userToPlayer.put(link.userId(), link);
+                                    return link;
+                                })
                                 .getFuture();
                     }
 
@@ -104,6 +90,7 @@ public abstract class CachedLinkProvider implements LinkProvider {
                             return CompletableFuture.completedFuture(null);
                         }
 
+                        // Player is still online
                         return asyncLoad(key, executor);
                     }
                 });
@@ -133,14 +120,16 @@ public abstract class CachedLinkProvider implements LinkProvider {
             return Task.completed(cached == UNLINKED ? Optional.empty() : Optional.of(cached));
         }
 
-        return query(userId).thenApply(link -> {
-            if (!link.isPresent()) {
+        return query(userId).thenApply(optionalLink -> {
+            if (optionalLink.isEmpty()) {
                 userToPlayer.put(userId, UNLINKED);
-                return link;
+                return optionalLink;
             }
 
-            userToPlayer.put(userId, link.get());
-            return link;
+            AccountLink link = optionalLink.get();
+            userToPlayer.put(userId, link);
+            playerToUser.put(link.playerUUID(), CompletableFuture.completedFuture(link));
+            return optionalLink;
         });
     }
 
@@ -150,7 +139,7 @@ public abstract class CachedLinkProvider implements LinkProvider {
         return Optional.ofNullable(value == null || value == UNLINKED ? null : value);
     }
 
-    @Subscribe(priority = EventPriorities.EARLIEST)
+    @Subscribe(priority = EventPriorities.PRE + 1)
     public void onPlayerConnected(PlayerConnectedEvent event) {
         // Cache logged in players
         UUID uuid = event.player().uniqueId();
@@ -168,8 +157,8 @@ public abstract class CachedLinkProvider implements LinkProvider {
 
     public static abstract class Store extends CachedLinkProvider implements LinkStore {
 
-        public Store(DiscordSRV discordSRV) {
-            super(discordSRV);
+        public Store(DiscordSRV discordSRV, Logger logger) {
+            super(discordSRV, logger);
         }
 
         public abstract Task<Void> link(@NotNull AccountLink link);

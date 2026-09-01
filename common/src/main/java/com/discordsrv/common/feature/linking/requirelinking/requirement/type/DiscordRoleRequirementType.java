@@ -47,7 +47,7 @@ public class DiscordRoleRequirementType extends LongRequirementType {
 
         return role.getGuild()
                 .retrieveMemberById(someone.userId())
-                .thenApply(member -> member.getRoles().contains(role));
+                .thenApply(member -> member != null && member.getRoles().contains(role));
     }
 
     @Subscribe

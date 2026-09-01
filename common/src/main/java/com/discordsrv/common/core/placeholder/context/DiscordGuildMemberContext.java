@@ -18,6 +18,8 @@
 
 package com.discordsrv.common.core.placeholder.context;
 
+import com.discordsrv.api.discord.entity.DiscordUser;
+import com.discordsrv.api.discord.entity.guild.DiscordGuild;
 import com.discordsrv.api.discord.entity.guild.DiscordGuildMember;
 import com.discordsrv.api.discord.entity.guild.DiscordRole;
 import com.discordsrv.api.placeholder.annotation.Placeholder;
@@ -52,6 +54,11 @@ public class DiscordGuildMemberContext {
         }
 
         return Component.join(JoinConfiguration.separator(Component.text(suffix)), components);
+    }
+
+    @Placeholder("server_member")
+    public DiscordGuildMember userServerMember(DiscordUser user, DiscordGuild guild) {
+        return guild.getMemberById(user.getId());
     }
 
     @Placeholder("roles")

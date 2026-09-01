@@ -23,9 +23,8 @@ import com.discordsrv.bukkit.BukkitDiscordSRV;
 import com.discordsrv.bukkit.command.game.sender.BukkitCommandSender;
 import com.discordsrv.bukkit.gamerule.GameRule;
 import com.discordsrv.common.abstraction.player.IPlayer;
-import com.discordsrv.common.abstraction.player.provider.model.SkinInfo;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.identity.Identity;
-import net.kyori.adventure.platform.bukkit.BukkitComponentSerializer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.MetadataValue;
@@ -41,14 +40,18 @@ public abstract class BukkitPlayer extends BukkitCommandSender implements IPlaye
     protected Player player;
     private final Identity identity;
 
-    public BukkitPlayer(BukkitDiscordSRV discordSRV, Player player) {
-        super(discordSRV, player, () -> discordSRV.audiences().player(player));
+    public BukkitPlayer(BukkitDiscordSRV discordSRV, Player player, Audience audience) {
+        super(discordSRV, player, audience);
         this.player = player;
         this.identity = Identity.identity(player.getUniqueId());
     }
 
     protected void setPlayer(Player player) {
         this.player = player;
+    }
+
+    public Player getPlayer() {
+        return player;
     }
 
     @Override
@@ -63,7 +66,7 @@ public abstract class BukkitPlayer extends BukkitCommandSender implements IPlaye
 
     @Override
     public Task<Void> kick(Component component) {
-        String legacy = BukkitComponentSerializer.legacy().serialize(component);
+        String legacy = discordSRV.componentFactory().legacySerializer().serialize(component);
         return discordSRV.scheduler().executeOnMainThread(player, () -> player.kickPlayer(legacy));
     }
 
@@ -72,9 +75,6 @@ public abstract class BukkitPlayer extends BukkitCommandSender implements IPlaye
 
     @Override
     public abstract void removeChatSuggestions(Collection<String> suggestions);
-
-    @Override
-    public abstract @Nullable SkinInfo skinInfo();
 
     @Override
     public abstract Locale locale();
@@ -99,7 +99,7 @@ public abstract class BukkitPlayer extends BukkitCommandSender implements IPlaye
 
     @Override
     public @NotNull Component displayName() {
-        return BukkitComponentSerializer.legacy().deserialize(player.getDisplayName());
+        return discordSRV.componentFactory().legacySerializer().deserialize(player.getDisplayName());
     }
 
     @Override

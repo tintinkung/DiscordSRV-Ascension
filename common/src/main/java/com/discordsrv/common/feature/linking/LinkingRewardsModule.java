@@ -81,7 +81,7 @@ public class LinkingRewardsModule extends AbstractModule<DiscordSRV> {
                         }
 
                         guild.retrieveMemberById(userId).whenSuccessful(member -> {
-                            if (member.isBoosting()) {
+                            if (member != null && member.isBoosting()) {
                                 triggerRewards(profile, RewardsConfig.BoostingReward.Type.IS_BOOSTING, guildId);
                             }
                         });

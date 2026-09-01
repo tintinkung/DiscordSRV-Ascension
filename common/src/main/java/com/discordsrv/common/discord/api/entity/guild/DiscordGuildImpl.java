@@ -29,10 +29,13 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.CompletionException;
 
 public class DiscordGuildImpl implements DiscordGuild {
 
@@ -65,8 +68,14 @@ public class DiscordGuildImpl implements DiscordGuild {
     }
 
     @Override
-    public @NotNull Task<DiscordGuildMember> retrieveMemberById(long id) {
+    public @NotNull Task<@Nullable DiscordGuildMember> retrieveMemberById(long id) {
         return discordSRV.discordAPI().toTask(() -> guild.retrieveMemberById(id))
+                .mapException(ErrorResponseException.class, e -> {
+                    if (e.getErrorResponse() != ErrorResponse.UNKNOWN_MEMBER) {
+                        throw new CompletionException(e);
+                    }
+                    return null;
+                })
                 .thenApply(member -> new DiscordGuildMemberImpl(discordSRV, member));
     }
 

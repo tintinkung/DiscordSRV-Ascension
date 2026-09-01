@@ -45,13 +45,15 @@ import com.discordsrv.common.core.logging.backend.LoggingBackend;
 import com.discordsrv.common.core.logging.backend.impl.JavaLoggerImpl;
 import com.discordsrv.common.core.scheduler.Scheduler;
 import com.discordsrv.common.core.scheduler.StandardScheduler;
+import com.discordsrv.common.core.storage.StorageType;
 import com.discordsrv.common.core.storage.impl.MemoryStorage;
 import com.discordsrv.common.feature.console.Console;
 import com.discordsrv.common.feature.messageforwarding.game.MinecraftToDiscordChatModule;
 import com.discordsrv.common.permission.game.Permission;
 import dev.vankka.dependencydownload.classpath.ClasspathAppender;
-import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -175,14 +177,10 @@ public class MockDiscordSRV extends AbstractDiscordSRV<IBootstrap, MainConfig, C
             }
 
             @Override
-            public void runCommand(String command) {
-
-            }
+            public void runCommand(String command) {}
 
             @Override
-            public @NotNull Audience audience() {
-                return null;
-            }
+            public void sendMessage(@NonNull Component message) {}
         };
     }
 
@@ -235,7 +233,8 @@ public class MockDiscordSRV extends AbstractDiscordSRV<IBootstrap, MainConfig, C
     public ConnectionConfig connectionConfig() {
         ConnectionConfig config = new ConnectionConfig();
         config.bot.token = FullBootExtension.BOT_TOKEN;
-        config.storage.backend = MemoryStorage.IDENTIFIER;
+        MemoryStorage.ENABLED = true;
+        config.storage.backend = StorageType.MEMORY;
         config.minecraftAuth.allow = false;
         config.update.firstPartyNotification = false;
         config.update.security.enabled = false;

@@ -22,6 +22,7 @@ import com.discordsrv.api.eventbus.EventPriorities;
 import com.discordsrv.api.eventbus.Subscribe;
 import com.discordsrv.api.events.linking.AccountLinkedEvent;
 import com.discordsrv.api.events.linking.AccountUnlinkedEvent;
+import com.discordsrv.api.events.profile.ProfileLoadedEvent;
 import com.discordsrv.api.profile.ProfileManager;
 import com.discordsrv.api.task.Task;
 import com.discordsrv.common.DiscordSRV;
@@ -66,10 +67,11 @@ public class ProfileManagerImpl implements ProfileManager {
 
     @Subscribe(priority = EventPriorities.LAST)
     public void onAccountUnlinked(AccountUnlinkedEvent event) {
-        unloadProfile(event.getPlayerUUID());
+        discordUserMap.remove(event.getUserId());
+        loadProfile(event.getPlayerUUID());
     }
 
-    public Task<ProfileImpl> loadProfile(@NotNull UUID playerUUID) {
+    public void loadProfile(@NotNull UUID playerUUID) {
         Task<ProfileImpl> lookup = queryProfile(playerUUID)
                 .thenApply(profile -> {
                     profiles.put(playerUUID, profile);
@@ -78,9 +80,12 @@ public class ProfileManagerImpl implements ProfileManager {
                     }
                     return profile;
                 });
+
         profileLookups.put(playerUUID, lookup);
-        lookup.whenComplete((__, ___) -> profileLookups.remove(playerUUID));
-        return lookup;
+        lookup.whenComplete((profile, ___) -> {
+            profileLookups.remove(playerUUID);
+            discordSRV.eventBus().publish(new ProfileLoadedEvent(profile));
+        });
     }
 
     public void unloadProfile(@NotNull UUID playerUUID) {

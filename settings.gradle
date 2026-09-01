@@ -17,19 +17,44 @@ plugins {
 stonecutter {
     kotlinController = false
 
+    def allFabric = ["1.20.6-fabric", "1.21.11-fabric", "1.21.6-fabric"]
+    def allNeoForge = ["1.21.1-neoforge", "1.21.4-neoforge", "1.21.5-neoforge", "1.21.6-neoforge", "1.21.9-neoforge", "1.21.11-neoforge", "26.1-neoforge", "26.2-neoforge"]
+    def activeFabric = allFabric
+    def activeNeoForge = allNeoForge
+
+    // To enable building for specific versions, pass the `moddedDevVersions` property to Gradle with a comma-separated list of versions.
+    // Can be done using gradle.properties or command line arguments.
+    // CLI Examples:
+    // - `./gradlew build -PmoddedDevVersions=1.21.11-fabric,1.21.11-neoforge`
+    // - `./gradlew build -PmoddedDevVersions=1.21.11` to build both 1.21.11-fabric and 1.21.11-neoforge.
+    // - `./gradlew build -PmoddedDevVersions=all` to build all versions.
+    def devVersionsProvider = providers.gradleProperty("moddedDevVersions")
+    if (System.getenv("CI") != "true" && devVersionsProvider.get() != "all") {
+        activeFabric = [allFabric.last()]
+        activeNeoForge = [allNeoForge.last()]
+
+        if (devVersionsProvider.isPresent()) {
+            def rawInputs = devVersionsProvider.get().split(',')*.trim()
+            def expandedRequested = rawInputs.collectMany { input -> input.endsWith("-fabric") || input.endsWith("-neoforge") ? [input] : ["${input}-fabric", "${input}-neoforge"]}
+
+            activeFabric += allFabric.intersect(expandedRequested)
+            activeNeoForge += allNeoForge.intersect(expandedRequested)
+        }
+    }
+    def asVersionsMap = { list -> list.collectEntries { [it, it] } }
+
     // Common source code for both Fabric and NeoForge.
     create("modded") {
-    //DEV START - I hate configuring stonecutter on dev
-        versions "1.20.6-fabric", "1.21.11-fabric", "1.21.6-fabric"
-        vcsVersion = "1.21.11-fabric"
-        //--- versions("1.19.2-fabric", "1.19.3-fabric", "1.19.4-fabric", "1.20.1-fabric", "1.20.2-fabric", "1.20.4-fabric", "1.20.6-fabric", "1.21.1-fabric", "1.21.4-fabric", "1.21.5-fabric", "1.21.6-fabric", "1.21.9-fabric", "1.21.11-fabric", "26.1-fabric").buildscript("fabric.build.gradle")
-        //--- versions("1.21.1-neoforge", "1.21.4-neoforge", "1.21.5-neoforge", "1.21.6-neoforge", "1.21.9-neoforge", "1.21.11-neoforge", "26.1-neoforge").buildscript("neoforge.build.gradle")
-        //--- vcsVersion = "26.1-fabric"
+        versions(asVersionsMap(activeFabric)).buildscript("fabric.build.gradle")
+        versions(asVersionsMap(activeNeoForge)).buildscript("neoforge.build.gradle")
+        vcsVersion = allFabric.last()
     }
+
     // For NeoForge Jar-in-Jar loader and mixin support
+    //DEV START - Neoforge later
     // create("neoforge") {
-    //     versions "1.21.1-neoforge", "1.21.4-neoforge", "1.21.5-neoforge", "1.21.6-neoforge", "1.21.9-neoforge", "1.21.11-neoforge", "26.1-neoforge"
-    //     vcsVersion = "26.1-neoforge"
+    //     versions(asVersionsMap(activeNeoForge))
+    //     vcsVersion = allNeoForge.last()
     // }
     //DEV END
 }
@@ -80,6 +105,11 @@ dependencyResolutionManagement {
             library('dependencydownload-jarinjar-bootstrap', 'dev.vankka', 'dependencydownload-jarinjar-bootstrap').versionRef('dependencydownload')
             library('dependencydownload-jarinjar-loader', 'dev.vankka', 'dependencydownload-jarinjar-loader').versionRef('dependencydownload')
 
+            // asm (dependency of jar-relocator which is a dependency of DependencyDownload)
+            version('asm', '9.10.1')
+            library('asm', 'org.ow2.asm', 'asm').versionRef('asm')
+            library('asm-commons', 'org.ow2.asm', 'asm-commons').versionRef('asm')
+
             // MinecraftDependencyDownload
             version('mcdependencydownload', '1.0.0')
             library('mcdependencydownload-bukkit-bootstrap', 'dev.vankka', 'minecraftdependencydownload-bukkit').versionRef('mcdependencydownload')
@@ -103,10 +133,7 @@ dependencyResolutionManagement {
             library('commons-io', 'commons-io', 'commons-io').version('2.15.1')
 
             // Caffeine
-            library('caffeine', 'com.github.ben-manes.caffeine', 'caffeine').version {
-                prefer '2.9.3'
-                reject '[3,)' // Java 11
-            }
+            library('caffeine', 'com.github.ben-manes.caffeine', 'caffeine').version('3.2.4')
 
             // DynamicProxy
             version('dynamicproxy', '1.0.1')
@@ -122,10 +149,7 @@ dependencyResolutionManagement {
             library('configurate-jackson', 'org.spongepowered', 'configurate-jackson').versionRef('configurate')
 
             // DB
-            library('hikaricp', 'com.zaxxer', 'HikariCP').version {
-                prefer '4.0.3'
-                reject '[5,)' // Java 11
-            }
+            library('hikaricp', 'com.zaxxer', 'HikariCP').version('7.1.0')
             library('h2', 'com.h2database', 'h2').version('2.1.210')
             library('mysql', 'mysql', 'mysql-connector-java').version('8.0.28')
             library('mariadb', 'org.mariadb.jdbc', 'mariadb-java-client').version('3.1.4')
@@ -149,37 +173,33 @@ dependencyResolutionManagement {
             library('mcmmo', 'com.gmail.nossr50', 'mcmmo').version('2.1.220')
             library('griefprevention', 'me.ryanhamshire', 'GriefPrevention').version('16.18.1')
             library('essentialsx', 'net.essentialsx', 'EssentialsX').version('2.20.1')
-            library('libertybans', 'space.arim.libertybans', 'bans-api').version("1.1.2")
-            library('advancedban', 'com.github.DevLeoko', 'AdvancedBan').version("v2.3.0")
+            library('libertybans', 'space.arim.libertybans', 'LibertyBans').version('1.1.3')
+            library('advancedban', 'me.leoko.advancedban', 'AdvancedBan').version('2.3.0')
             library('carbonchat', 'de.hexaoxi', 'carbonchat-api').version('3.0.0-beta.36')
+            library('skinsrestorer-api', 'net.skinsrestorer', 'skinsrestorer-api').version('15.12.2')
 
             // Logging
             library('slf4j-api', 'org.slf4j', 'slf4j-api').version {
-                prefer '1.7.36'
+                require '1.7.36'
                 reject '[2,)' // Uses ServiceLoader
             }
             library('log4j-core', 'org.apache.logging.log4j', 'log4j-core').version('2.0-beta9')
 
             // Adventure
-            version('adventure', '4.26.1')
+            version('adventure', '5.2.0')
             library('adventure-api', 'net.kyori', 'adventure-api').versionRef('adventure')
             library('adventure-serializer-plain', 'net.kyori', 'adventure-text-serializer-plain').versionRef('adventure')
             library('adventure-serializer-legacy', 'net.kyori', 'adventure-text-serializer-legacy').versionRef('adventure')
             library('adventure-serializer-gson', 'net.kyori', 'adventure-text-serializer-gson').versionRef('adventure')
             library('adventure-serializer-ansi', 'net.kyori', 'adventure-text-serializer-ansi').versionRef('adventure')
-
-            // Adventure Platform
-            version('adventure-platform', '4.4.1')
-            library('adventure-platform-bukkit', 'net.kyori', 'adventure-platform-bukkit').versionRef('adventure-platform')
-            library('adventure-platform-bungee', 'net.kyori', 'adventure-platform-bungeecord').versionRef('adventure-platform')
-            library('adventure-serializer-bungee', 'net.kyori', 'adventure-text-serializer-bungeecord').versionRef('adventure-platform')
-
-            // Downgrade ansi (jar-relocator incompatibility)
-            library('kyori-ansi', 'net.kyori', 'ansi').version('1.1.0')
+            // not included at runtime (only used in compile time only :unrelocate)
+            version('adventure-v4', '4.26.1')
+            library('adventure-api-v4', 'net.kyori', 'adventure-api').versionRef('adventure-v4')
+            library('adventure-serializer-gson-v4', 'net.kyori', 'adventure-text-serializer-gson').versionRef('adventure-v4')
 
             // MCDiscordReserializer & EnhancedLegacyText
-            library('mcdiscordreserializer', 'dev.vankka', 'mcdiscordreserializer').version('4.4.0')
-            library('enhancedlegacytext', 'dev.vankka', 'enhancedlegacytext').version('2.0.0')
+            library('mcdiscordreserializer', 'dev.vankka', 'mcdiscordreserializer').version('5.0.0-SNAPSHOT')
+            library('enhancedlegacytext', 'dev.vankka', 'enhancedlegacytext').version('3.0.0-SNAPSHOT')
 
             // JUnit
             library('junit-jupiter', 'org.junit.jupiter', 'junit-jupiter').version('5.10.2')
@@ -195,7 +215,9 @@ rootProject.name = 'DiscordSRV-Ascension'
         'api', 'api:configurate',
         // Bukkit
         'bukkit', 'bukkit:shared', 'bukkit:loader',
-        'bukkit:compat:bukkit1_12', 'bukkit:compat:spigot', 'bukkit:compat:paper', 'bukkit:compat:folia',
+        'bukkit:compat:bukkit1_8', 'bukkit:compat:bukkit1_12', 'bukkit:compat:spigot', 'bukkit:compat:paper', 'bukkit:compat:folia',
+        // Paper (Bukkit)
+        'paper', 'paper:loader',
         // Bungee
         'bungee', 'bungee:loader',
         // Velocity

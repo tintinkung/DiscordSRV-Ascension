@@ -21,6 +21,7 @@ package com.discordsrv.common.feature.linking.impl;
 import com.discordsrv.api.component.MinecraftComponent;
 import com.discordsrv.api.task.Task;
 import com.discordsrv.common.DiscordSRV;
+import com.discordsrv.common.core.logging.NamedLogger;
 import com.discordsrv.common.feature.linking.AccountLink;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -34,7 +35,7 @@ import java.util.UUID;
 public class StorageLinker extends CachedLinkProvider.Store {
 
     public StorageLinker(DiscordSRV discordSRV) {
-        super(discordSRV);
+        super(discordSRV, new NamedLogger(discordSRV, "STORAGE_LINKER"));
     }
 
     @Override

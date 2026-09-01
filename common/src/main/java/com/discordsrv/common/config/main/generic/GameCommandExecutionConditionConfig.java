@@ -35,21 +35,20 @@ public class GameCommandExecutionConditionConfig {
     @SuppressWarnings("unused") // Configurate
     public GameCommandExecutionConditionConfig() {}
 
-    public GameCommandExecutionConditionConfig(List<Long> roleAndUserIds, boolean blacklist, List<String> commands) {
-        this.roleAndUserIds = roleAndUserIds;
-        this.blacklist = blacklist;
+    public GameCommandExecutionConditionConfig(List<String> commands) {
         this.commands = commands;
     }
 
-    @Comment("The role and user ids that should be allowed to run the commands specified in this condition")
-    public List<Long> roleAndUserIds = new ArrayList<>();
+    @Comment("Which users are allowed to run the commands filtered by this condition. At least one whitelist condition must be specified")
+    public DiscordUserFilterConfig.Strict userFilter = new DiscordUserFilterConfig.Strict();
 
-    @Comment("true for blacklist (blocking commands), false for whitelist (allowing commands)")
-    public boolean blacklist = true;
+    @Comment("\"blacklist\" to allow only commands not listed (blacklisting), \"whitelist\" to only allow listed commands (whitelisting)")
+    public FilterMode filterMode = FilterMode.BLACKLIST;
 
-    @Comment("The commands and/or patterns that are allowed/blocked.\n" +
-            "The command needs to start with input, this will attempt to normalize command aliases where possible (for the main command)\n" +
-            "If the command starts and ends with /, the input will be treated as a regular expression (regex) and it will pass if it matches the entire command")
+    @Comment("""
+            The commands and/or patterns that are allowed/blocked.
+            The command needs to start with input, this will attempt to normalize command aliases where possible (for the main command)
+            If the command starts and ends with /, the input will be treated as a regular expression (regex) and it will pass if it matches the entire command""")
     public List<String> commands = new ArrayList<>();
 
     /**
@@ -75,7 +74,7 @@ public class GameCommandExecutionConditionConfig {
         command = command.toLowerCase(Locale.ROOT);
 
         List<String> parts = new ArrayList<>(Arrays.asList(configCommand.split(" ")));
-        String rootCommand = parts.remove(0);
+        String rootCommand = parts.removeFirst();
 
         Set<String> rootCommands = new LinkedHashSet<>();
         rootCommands.add(rootCommand);
@@ -139,25 +138,18 @@ public class GameCommandExecutionConditionConfig {
             boolean suggestions,
             GameCommandExecutionHelper helper
     ) {
-        boolean match = false;
-        for (Long id : roleAndUserIds) {
-            if (id == userId || roleIds.contains(id)) {
-                match = true;
-                break;
-            }
-        }
-        if (!match) {
+        if (!userFilter.included(false, false, userId, roleIds)) {
             return false;
         }
 
         for (String configCommand : commands) {
             boolean anyMatch = isCommandMatch(configCommand, command, suggestions, helper);
             if (anyMatch) {
-                return !blacklist;
+                return filterMode.isWhitelist();
             }
         }
 
         // none match
-        return blacklist;
+        return !filterMode.isWhitelist();
     }
 }

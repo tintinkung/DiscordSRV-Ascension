@@ -31,8 +31,23 @@ import java.util.List;
 @ConfigSerializable
 public abstract class SyncConfig {
 
-    @Comment("The direction to synchronize in.\n"
-            + "Valid options: %1, %2, %3")
+    public SyncConfig() {}
+
+    public SyncConfig(
+            SyncDirection direction,
+            TimerConfig timer,
+            TieBreakers tieBreakers,
+            UnlinkBehaviour unlinkBehaviour
+    ) {
+        this.direction = direction;
+        this.timer = timer;
+        this.tieBreakers = tieBreakers;
+        this.unlinkBehaviour = unlinkBehaviour;
+    }
+
+    @Comment("""
+            The direction to synchronize in.
+            Valid options: %1, %2, %3""")
     @Constants.Comment({"bidirectional", "minecraft_to_discord", "discord_to_minecraft"})
     @Order(-5)
     public SyncDirection direction = SyncDirection.BIDIRECTIONAL;
@@ -43,8 +58,16 @@ public abstract class SyncConfig {
     @ConfigSerializable
     public static class TimerConfig {
 
-        @Comment("The direction which takes priority for determining for synchronization\n"
-                + "Valid options: %1, %2, %3")
+        public TimerConfig() {}
+
+        public TimerConfig(SyncSide side, int cycleTimeMinutes) {
+            this.side = side;
+            this.cycleTime = cycleTimeMinutes;
+        }
+
+        @Comment("""
+                The direction which takes priority for determining for synchronization
+                Valid options: %1, %2, %3""")
         @Constants.Comment({"minecraft", "discord", "disabled"})
         public SyncSide side = SyncSide.MINECRAFT;
 
@@ -60,12 +83,21 @@ public abstract class SyncConfig {
         }
     }
 
-    @Comment("Decides which side takes priority when synchronizing and there are differences. Also allows disabling synchronization on these events\n"
-            + "Valid options: %1, %2, %3")
+    @Comment("""
+            Decides which side takes priority when synchronizing and there are differences. Also allows disabling synchronization on these events
+            Valid options: %1, %2, %3""")
     @Constants.Comment({"minecraft", "discord", "disabled"})
     public TieBreakers tieBreakers = new TieBreakers();
 
     public static class TieBreakers {
+
+        public TieBreakers() {}
+
+        public TieBreakers(SyncSide join, SyncSide link, SyncSide resyncCommand) {
+            this.join = join;
+            this.link = link;
+            this.resyncCommand = resyncCommand;
+        }
 
         public SyncSide join = SyncSide.MINECRAFT;
         public SyncSide link = SyncSide.MINECRAFT;
@@ -85,8 +117,9 @@ public abstract class SyncConfig {
         }
     }
 
-    @Comment("Behaviour when account is unlinked\n"
-            + "Valid options: %1, %2, %3, %4")
+    @Comment("""
+            Behaviour when account is unlinked
+            Valid options: %1, %2, %3, %4""")
     @Constants.Comment({"do_nothing", "remove_discord", "remove_game", "remove_both"})
     public UnlinkBehaviour unlinkBehaviour = UnlinkBehaviour.REMOVE_DISCORD;
 
@@ -111,5 +144,15 @@ public abstract class SyncConfig {
         public boolean isDiscord() {
             return discord;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "SyncConfig{" +
+                "direction=" + direction +
+                ", timer=" + timer +
+                ", tieBreakers=" + tieBreakers +
+                ", unlinkBehaviour=" + unlinkBehaviour +
+                '}';
     }
 }

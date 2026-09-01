@@ -26,6 +26,7 @@ import com.discordsrv.common.DiscordSRV;
 import com.discordsrv.common.abstraction.player.IPlayer;
 import com.discordsrv.common.config.main.linking.RequiredLinkingConfig;
 import com.discordsrv.common.config.main.linking.RequirementsConfig;
+import com.discordsrv.common.core.logging.NamedLogger;
 import com.discordsrv.common.core.module.type.AbstractModule;
 import com.discordsrv.common.core.scheduler.Scheduler;
 import com.discordsrv.common.core.scheduler.executor.DynamicCachingThreadPoolExecutor;
@@ -60,7 +61,7 @@ public abstract class RequiredLinkingModule<T extends DiscordSRV> extends Abstra
     private ThreadPoolExecutor executor;
 
     public RequiredLinkingModule(T discordSRV) {
-        super(discordSRV);
+        super(discordSRV, new NamedLogger(discordSRV, "REQUIRED_LINKING"));
     }
 
     public DiscordSRV discordSRV() {
