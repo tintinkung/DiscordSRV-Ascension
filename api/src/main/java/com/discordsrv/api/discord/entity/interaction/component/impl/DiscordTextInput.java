@@ -40,7 +40,7 @@ public class DiscordTextInput implements JDAEntity<TextInput>, LabelComponent<Te
      * Creates a new text input builder with the given label and style.
      *
      * @param id a unique identifier for this component, used to check for the value of the input
-     * @param label the label shown above the text input
+     * @param label TODO: This actually doesn't do anything
      * @param style the style of the text input
      * @return a new text input builder
      */
@@ -78,6 +78,7 @@ public class DiscordTextInput implements JDAEntity<TextInput>, LabelComponent<Te
         this.defaultValue = defaultValue;
     }
 
+    @Deprecated
     public String getLabel() {
         return label;
     }
@@ -154,8 +155,9 @@ public class DiscordTextInput implements JDAEntity<TextInput>, LabelComponent<Te
             return this;
         }
 
-        public void setDefaultValue(String defaultValue) {
+        public Builder setDefaultValue(String defaultValue) {
             this.defaultValue = defaultValue;
+            return this;
         }
 
         public DiscordTextInput build() {

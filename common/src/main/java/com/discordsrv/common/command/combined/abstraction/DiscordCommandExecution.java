@@ -117,7 +117,9 @@ public class DiscordCommandExecution implements CommandExecution {
         sendResponse(discord);
     }
 
-    private void sendResponse(SendableDiscordMessage message) {
+    //FORK START - weaken visibility for testing
+    protected void sendResponse(SendableDiscordMessage message) {
+    //FORK END
         InteractionHook interactionHook = hook.get();
         boolean ephemeral = isEphemeral.get();
         MessageCreateData data = SendableDiscordMessageUtil.toJDASend(message);

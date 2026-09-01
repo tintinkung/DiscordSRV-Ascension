@@ -60,11 +60,6 @@ public final class SendableDiscordMessageUtil {
             }
         }
 
-        List<MessageEmbed> embeds = new ArrayList<>();
-        for (DiscordMessageEmbed embed : message.getEmbeds()) {
-            embeds.add(embed.toJDA());
-        }
-
         List<FileUpload> uploads = new ArrayList<>();
         for (Map.Entry<InputStream, String> attachment : message.getAttachments().entrySet()) {
             uploads.add(FileUpload.fromData(attachment.getKey(), attachment.getValue()));
@@ -77,6 +72,20 @@ public final class SendableDiscordMessageUtil {
             builder = (T) builder.mentionRoles(allowedRoles.stream().mapToLong(l -> l).toArray());
         }
 
+        //FORK START - components V2 support
+        if(message.isUsingComponentsV2()) {
+            builder.useComponentsV2();
+            return (T) builder
+                    .setAllowedMentions(allowedTypes)
+                    .setSuppressEmbeds(message.isSuppressedEmbeds())
+                    .setFiles(uploads);
+        }
+
+        List<MessageEmbed> embeds = new ArrayList<>();
+        for (DiscordMessageEmbed embed : message.getEmbeds()) {
+            embeds.add(embed.toJDA());
+        }
+        //FORK END
         return (T) builder
                 .setContent(message.getContent())
                 .setEmbeds(embeds)

@@ -17,7 +17,7 @@ plugins {
 stonecutter {
     kotlinController = false
 
-    def allFabric = ["1.19.2-fabric", "1.19.3-fabric", "1.19.4-fabric", "1.20.1-fabric", "1.20.2-fabric", "1.20.4-fabric", "1.20.6-fabric", "1.21.1-fabric", "1.21.4-fabric", "1.21.5-fabric", "1.21.6-fabric", "1.21.9-fabric", "1.21.11-fabric", "26.1-fabric", "26.2-fabric"]
+    def allFabric = ["1.20.6-fabric", "1.21.11-fabric", "1.21.6-fabric"]
     def allNeoForge = ["1.21.1-neoforge", "1.21.4-neoforge", "1.21.5-neoforge", "1.21.6-neoforge", "1.21.9-neoforge", "1.21.11-neoforge", "26.1-neoforge", "26.2-neoforge"]
     def activeFabric = allFabric
     def activeNeoForge = allNeoForge
@@ -51,10 +51,12 @@ stonecutter {
     }
 
     // For NeoForge Jar-in-Jar loader and mixin support
-    create("neoforge") {
-        versions(asVersionsMap(activeNeoForge))
-        vcsVersion = allNeoForge.last()
-    }
+    //DEV START - Neoforge later
+    // create("neoforge") {
+    //     versions(asVersionsMap(activeNeoForge))
+    //     vcsVersion = allNeoForge.last()
+    // }
+    //DEV END
 }
 
 dependencyResolutionManagement {
@@ -81,8 +83,8 @@ dependencyResolutionManagement {
 
             // Paper
             library('paperapi-minimum', 'com.destroystokyo.paper', 'paper-api').version('1.16.5-R0.1-SNAPSHOT')
-            library('paperapi-latest', 'io.papermc.paper', 'paper-api').version('26.1.2.build.74-stable')
-            library('folia', 'dev.folia', 'folia-api').version('26.1.2.build.8-stable')
+            library('paperapi-latest', 'io.papermc.paper', 'paper-api').version('1.21.11-R0.1-SNAPSHOT')
+            library('folia', 'dev.folia', 'folia-api').version('1.21.11-R0.1-SNAPSHOT')
 
             // Bungee
             library('bungee', 'net.md-5', 'bungeecord-api').version('1.21-R0.4-SNAPSHOT')
